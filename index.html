@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Spor Defterim — Antrenman & 1-1000 Level Takip</title>
+    <meta name="title" content="Spor Defterim — Antrenman & 1-1000 Level Takip" />
+    <meta name="description" content="Modern, seviye atlamalı (1-1000 Lv), PR takipli, anatomik kas haritalı ve bulut senkronizasyonlu profesyonel spor günlüğü ve antrenman takip PWA uygulaması." />
+    <meta name="keywords" content="spor defterim, antrenman takip, fitness günlüğü, gym tracker, workout log, pwa, seviye atlama, personal record, PR, bulut yedekleme" />
+    <meta name="author" content="Spor Defterim" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spor Defterim — Antrenman & Level Takibi" />
+    <meta property="og:description" content="Kişiselleştirilmiş antrenman takibi, set & ağırlık kaydı, 1-1000 seviye ilerlemesi ve kişisel rekorlar." />
+    <meta property="og:image" content="/icon-512.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Spor Defterim — Antrenman & Level Takibi" />
+    <meta property="twitter:description" content="Kişiselleştirilmiş antrenman takibi, set & ağırlık kaydı, 1-1000 seviye ilerlemesi ve kişisel rekorlar." />
+    <meta property="twitter:image" content="/icon-512.png" />
+
+    <!-- PWA & Mobile Optimization -->
+    <meta name="theme-color" content="#0b0f17" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Spor Defterim" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Spor Defterim" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Service Worker Registration for PWA Offline Support
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              // Check for update periodically
+              registration.update();
+            })
+            .catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
