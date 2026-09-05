@@ -255,7 +255,7 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
               position: 'relative',
               width: '100%',
               maxWidth: 520,
-              maxHeight: '85vh',
+              maxHeight: 'calc(85dvh - var(--safe-top))',
               background: 'linear-gradient(180deg, #131b2e 0%, #0c111d 100%)',
               borderTop: '1px solid rgba(255, 255, 255, 0.12)',
               borderLeft: '1px solid rgba(255, 255, 255, 0.06)',

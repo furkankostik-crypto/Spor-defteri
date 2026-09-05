@@ -45,11 +45,20 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
     Object.entries(draft.exerciseSets).forEach(([exId, sets]) => {
       const ex = allExercises.find((e) => e.id === exId);
-      if (ex && stats[ex.muscle]) {
+      if (ex) {
+        const activations = ex.muscles && ex.muscles.length > 0
+          ? ex.muscles
+          : [{ muscle: ex.muscle, ratio: 1.0, role: 'primary' as const }];
+
         sets.forEach((s) => {
           if (s.weight > 0) {
-            stats[ex.muscle].setsCount++;
-            stats[ex.muscle].volume += s.weight * (s.reps || 5);
+            const vol = s.weight * (s.reps || 5);
+            activations.forEach((act) => {
+              if (stats[act.muscle]) {
+                stats[act.muscle].setsCount += act.role === 'primary' ? 1 : 0.5;
+                stats[act.muscle].volume += Math.round(vol * act.ratio);
+              }
+            });
           }
         });
       }

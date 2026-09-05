@@ -12,7 +12,8 @@ import {
   PlusCircle, 
   Flame, 
   Dumbbell, 
-  ChevronRight 
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 
 interface MuscleDetailViewProps {
@@ -32,20 +33,30 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
 
   const meta = muscleMetadata[muscle] || muscleMetadata.chest;
 
-  // Filter exercises for this specific muscle
-  const exercises = allExercises.filter((ex) => ex.muscle === muscle);
+  // Filter primary and synergist exercises for this specific muscle
+  const primaryExercises = allExercises.filter(
+    (ex) => ex.muscle === muscle || ex.muscles?.some((m) => m.muscle === muscle && m.role === 'primary')
+  );
+  const synergistExercises = allExercises.filter(
+    (ex) => ex.muscle !== muscle && ex.muscles?.some((m) => m.muscle === muscle && m.role !== 'primary')
+  );
 
-  // Calculate live session stats for this muscle
+  // Calculate live session stats for this muscle using scientific proportional volume
   let muscleSetsCount = 0;
   let muscleVolume = 0;
-  exercises.forEach((ex) => {
-    const sets = draft.exerciseSets[ex.id] || [];
-    sets.forEach((s) => {
-      if (s.weight > 0) {
-        muscleSetsCount++;
-        muscleVolume += s.weight * (s.reps || 5);
-      }
-    });
+  allExercises.forEach((ex) => {
+    const act = ex.muscles?.find((m) => m.muscle === muscle);
+    const isTarget = ex.muscle === muscle || Boolean(act);
+    if (isTarget) {
+      const ratio = act ? act.ratio : (ex.muscle === muscle ? 1.0 : 0);
+      const sets = draft.exerciseSets[ex.id] || [];
+      sets.forEach((s) => {
+        if (s.weight > 0) {
+          muscleSetsCount += act ? (act.role === 'primary' ? 1 : 0.5) : 1;
+          muscleVolume += Math.round(s.weight * (s.reps || 5) * ratio);
+        }
+      });
+    }
   });
 
   const muscleList: MuscleGroup[] = [
@@ -105,7 +116,7 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
           }}
         >
           <Dumbbell size={13} color={meta.color} />
-          <span>{exercises.length} Hareket Mevcut</span>
+          <span>{primaryExercises.length + synergistExercises.length} Hareket Mevcut</span>
         </div>
       </div>
 
@@ -246,41 +257,60 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
 
       {/* Exercise Square Cards Grid for this Muscle Group */}
       <div>
-        {exercises.length > 0 ? (
-          <div className="exercise-cards-grid">
-            {exercises.map((exercise) => (
-              <ExerciseSquareCard 
-                key={exercise.id} 
-                exercise={exercise} 
-                onClick={() => setSelectedOverlayExercise(exercise)}
-              />
-            ))}
+        {primaryExercises.length > 0 ? (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
+              🎯 Birincil Hedef Egzersizleri:
+            </div>
+            <div className="exercise-cards-grid" style={{ marginBottom: synergistExercises.length > 0 ? 16 : 8 }}>
+              {primaryExercises.map((exercise) => (
+                <ExerciseSquareCard 
+                  key={exercise.id} 
+                  exercise={exercise} 
+                  onClick={() => setSelectedOverlayExercise(exercise)}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <div
             className="card"
             style={{
               textAlign: 'center',
-              padding: '32px 16px',
-              color: 'var(--text-muted)'
+              padding: '24px 16px',
+              color: 'var(--text-muted)',
+              marginBottom: 14
             }}
           >
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🏋️‍♂️</div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#ffffff', marginBottom: 4 }}>
-              Bu Bölgede Henüz Egzersiz Yok
+            <div style={{ fontSize: 28, marginBottom: 6 }}>🏋️‍♂️</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#ffffff', marginBottom: 2 }}>
+              Bu Bölgede Doğrudan Birincil Egzersiz Yok
             </div>
-            <div style={{ fontSize: 12, marginBottom: 16 }}>
-              Aşağıdaki butona tıklayarak {meta.name} için yeni bir özel hareket ekleyebilirsiniz.
+            <div style={{ fontSize: 11, marginBottom: 12 }}>
+              Yeni bir özel {meta.name} hareketi ekleyebilirsiniz.
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAddCustomOpen(true)}
-              className="btn btn-primary"
-              style={{ padding: '8px 16px', fontSize: 13 }}
-            >
-              <PlusCircle size={15} />
-              <span>{meta.name} Hareketi Ekle</span>
-            </button>
+          </div>
+        )}
+
+        {/* Synergist Exercises (Auxiliary Muscle Stimulation) */}
+        {synergistExercises.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 800, color: 'var(--text-muted)', marginBottom: 4 }}>
+              <Zap size={14} color="var(--cyan)" />
+              <span>Yardımcı / Sinerjist Olarak Çalıştıran Hareketler:</span>
+            </div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-dim)', marginBottom: 8 }}>
+              Bu bileşik egzersizler {meta.name} kasına da ikincil uyarım ve EXP kazandırır.
+            </div>
+            <div className="exercise-cards-grid">
+              {synergistExercises.map((exercise) => (
+                <ExerciseSquareCard 
+                  key={exercise.id} 
+                  exercise={exercise} 
+                  onClick={() => setSelectedOverlayExercise(exercise)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>

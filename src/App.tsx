@@ -7,6 +7,8 @@ import { ToastContainer } from './components/common/Toast';
 import { Confetti } from './components/common/Confetti';
 import { AuthModal } from './components/auth/AuthModal';
 import { InstallPrompt } from './components/common/InstallPrompt';
+import { AthleteProfileModal } from './components/common/AthleteProfileModal';
+import { AICoachModal } from './components/stats/AICoachModal';
 
 export const App: React.FC = () => {
   const { activeTab, isLoggingWorkout } = useWorkout();
@@ -34,6 +36,8 @@ export const App: React.FC = () => {
       <ToastContainer />
       <Confetti />
       <AuthModal />
+      <AthleteProfileModal />
+      <AICoachModal />
     </>
   );
 };

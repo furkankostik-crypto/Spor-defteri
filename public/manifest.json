@@ -3,9 +3,14 @@
   "short_name": "Spor Defterim",
   "description": "Kişiselleştirilmiş antrenman takibi, set & ağırlık kaydı, 1-1000 seviye ilerlemesi ve kişisel rekorlar (PR).",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "window-controls-overlay",
+    "standalone"
+  ],
   "background_color": "#0b0f17",
   "theme_color": "#0b0f17",
   "orientation": "portrait",

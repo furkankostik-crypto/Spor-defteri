@@ -4,6 +4,7 @@ import { ExerciseVisual } from './ExerciseVisual';
 import { SetRow } from './SetRow';
 import { useWorkout } from '../../context/WorkoutContext';
 import { getLastWorkoutSets, calculateExerciseLevelInfo } from '../../utils/calculations';
+import { getExerciseOverloadSuggestion } from '../../utils/recommendationEngine';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { sounds } from '../../utils/audio';
 import { 
@@ -13,7 +14,9 @@ import {
   Check, 
   Sparkles, 
   RotateCcw,
-  Star
+  Star,
+  Target,
+  Zap
 } from 'lucide-react';
 
 interface ExerciseInputOverlayProps {
@@ -33,7 +36,9 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
     updateDraftSet, 
     addDraftSet, 
     removeDraftSet,
-    clearDraftExercise
+    clearDraftExercise,
+    profile,
+    applyOverloadSuggestion
   } = useWorkout();
 
   // Close overlay on ESC key
@@ -53,9 +58,9 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
 
   // Get current sets from draft or default 3 sets
   const currentSets = draft.exerciseSets[exercise.id] || [
-    { id: '1', weight: 0, reps: 5 },
-    { id: '2', weight: 0, reps: 5 },
-    { id: '3', weight: 0, reps: 5 }
+    { id: '1', weight: 0, reps: 0 },
+    { id: '2', weight: 0, reps: 0 },
+    { id: '3', weight: 0, reps: 0 }
   ];
 
   const activeSets = currentSets.filter(s => s.weight > 0);
@@ -64,6 +69,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
   // Previous performance and level info
   const lastPerformance = getLastWorkoutSets(exercise.id, workouts);
   const exerciseLevelInfo = calculateExerciseLevelInfo(exercise, workouts);
+  const overloadSuggestion = getExerciseOverloadSuggestion(exercise, workouts, profile);
   const meta = muscleMetadata[exercise.muscle] || muscleMetadata.chest;
 
   // Quick fill previous workout weights
@@ -90,7 +96,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
       onClick={handleCloseModal}
       style={{
         zIndex: 1050,
-        padding: '12px'
+        padding: 'calc(12px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left))'
       }}
     >
       <div 
@@ -186,6 +192,34 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 Lv {exerciseLevelInfo.currentLevel} • {exerciseLevelInfo.totalEXP.toLocaleString()} EXP
               </div>
+
+              {exercise.muscles && exercise.muscles.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                  {exercise.muscles.map((act) => {
+                    const actMeta = muscleMetadata[act.muscle];
+                    return (
+                      <span
+                        key={act.muscle}
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 700,
+                          padding: '1px 5px',
+                          borderRadius: 'var(--radius-sm)',
+                          background: act.role === 'primary' ? `${actMeta?.color || '#38bdf8'}25` : 'rgba(255, 255, 255, 0.06)',
+                          color: act.role === 'primary' ? (actMeta?.color || '#38bdf8') : 'var(--text-muted)',
+                          border: `1px solid ${act.role === 'primary' ? `${actMeta?.color || '#38bdf8'}50` : 'rgba(255, 255, 255, 0.1)'}`,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3
+                        }}
+                      >
+                        <span>{actMeta?.icon || '💪'}</span>
+                        <span>{actMeta?.name || act.muscle} %{Math.round(act.ratio * 100)}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -273,6 +307,84 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               <span>Öncekileri Kopyala</span>
             </button>
           )}
+        </div>
+
+        {/* Bilimsel Aşırı Yükleme (Progressive Overload) Hedef Kartı */}
+        <div
+          style={{
+            background: overloadSuggestion.isPlateau 
+              ? 'rgba(239, 68, 68, 0.12)' 
+              : 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(56, 189, 248, 0.1))',
+            border: `1px solid ${overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 12px',
+            marginBottom: 14,
+            boxShadow: 'var(--shadow-sm)'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {overloadSuggestion.isPlateau ? (
+                <Zap size={14} color="#ef4444" />
+              ) : (
+                <Target size={14} color="var(--muscle-emerald)" />
+              )}
+              <span 
+                style={{ 
+                  fontSize: 12, 
+                  fontWeight: 800, 
+                  color: overloadSuggestion.isPlateau ? '#fca5a5' : '#ffffff' 
+                }}
+              >
+                {overloadSuggestion.title}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => applyOverloadSuggestion(exercise.id)}
+              style={{
+                background: overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)',
+                border: `1px solid ${overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.5)'}`,
+                borderRadius: 'var(--radius-sm)',
+                color: overloadSuggestion.isPlateau ? '#fca5a5' : '#34d399',
+                fontSize: 11,
+                fontWeight: 800,
+                padding: '4px 9px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                transition: 'all 0.15s'
+              }}
+            >
+              <Target size={12} />
+              <span>Hedefi Uygula</span>
+            </button>
+          </div>
+
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: 6 }}>
+            {overloadSuggestion.description}
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {overloadSuggestion.suggestedSets.map((s, sIdx) => (
+              <span
+                key={sIdx}
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  padding: '2px 7px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  color: '#ffffff'
+                }}
+              >
+                Set #{sIdx + 1}: {s.weight} kg × {s.reps}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Sets Table Header */}

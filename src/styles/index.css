@@ -42,6 +42,15 @@
 
   --safe-bottom: env(safe-area-inset-bottom, 16px);
   --safe-top: env(safe-area-inset-top, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* Edge-to-edge PWA Standalone & Fullscreen notch protection */
+@media all and (display-mode: fullscreen), all and (display-mode: standalone) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 0px), 8px);
+  }
 }
 
 * {
@@ -51,6 +60,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  height: 100%;
+  background-color: var(--bg-color);
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bg-color);
@@ -58,9 +72,11 @@ body {
   background-attachment: fixed;
   color: var(--text-main);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   overflow-x: hidden;
+  overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -73,10 +89,14 @@ h1, h2, h3, h4, .font-heading {
   width: 100%;
   max-width: 520px;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   position: relative;
+  padding-top: var(--safe-top);
   padding-bottom: calc(80px + var(--safe-bottom));
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
   transition: padding-bottom 0.2s ease;
 }
 
@@ -191,6 +211,17 @@ body.logging-active #root {
 .form-input:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(255, 71, 87, 0.15);
+}
+
+/* Hide spin buttons on number inputs */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
 }
 
 /* Workout Split Selector Pills */
@@ -395,7 +426,7 @@ body.logging-active #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
   z-index: 1000;
   animation: fadeIn 0.2s ease-out;
 }
@@ -403,7 +434,7 @@ body.logging-active #root {
 .modal-content {
   width: 100%;
   max-width: 480px;
-  max-height: 90vh;
+  max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
   overflow-y: auto;
   background: var(--card-bg-solid);
   border: 1px solid var(--border);

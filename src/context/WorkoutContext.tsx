@@ -5,7 +5,8 @@ import {
   SplitType, 
   TabType, 
   ExerciseSet,
-  OverallPlayerStats
+  OverallPlayerStats,
+  AthleteProfile
 } from '../types/workout';
 import { defaultExercises } from '../data/defaultExercises';
 import { getTodayLocalDate } from '../utils/dateUtils';
@@ -15,6 +16,7 @@ import { generateTwoYearWorkouts } from '../data/mockWorkouts';
 import { useAuth } from './AuthContext';
 import { saveCloudWorkouts, performFullSync } from '../services/workoutSync';
 import { mergeWorkoutsByDate, mergeSavedExerciseLists, determineSplitType } from '../utils/workoutMerge';
+import { getExerciseOverloadSuggestion } from '../utils/recommendationEngine';
 
 export interface ToastMessage {
   id: string;
@@ -67,6 +69,13 @@ interface WorkoutContextType {
   importAllData: (workouts: Workout[], custom: ExerciseDefinition[]) => void;
   resetAllData: () => void;
   populateSampleData: () => void;
+  profile: AthleteProfile;
+  updateProfile: (updates: Partial<AthleteProfile>) => void;
+  applyOverloadSuggestion: (exerciseId: string) => void;
+  isProfileModalOpen: boolean;
+  setIsProfileModalOpen: (open: boolean) => void;
+  isAICoachOpen: boolean;
+  setIsAICoachOpen: (open: boolean) => void;
   syncWithCloud: (options?: SyncCloudOptions) => Promise<void>;
 }
 
@@ -76,12 +85,32 @@ const STORAGE_WORKOUTS_KEY = 'myWorkouts_v2';
 const STORAGE_LEGACY_KEY = 'myWorkouts';
 const STORAGE_CUSTOM_EXERCISES_KEY = 'myCustomExercises';
 const STORAGE_SOUND_KEY = 'spor_sound_enabled';
+const STORAGE_PROFILE_KEY = 'spor_athlete_profile';
+
+const DEFAULT_PROFILE: AthleteProfile = {
+  bodyWeightKg: 75,
+  gender: 'male',
+  age: 25,
+  trainingGoal: 'hypertrophy'
+};
 
 export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isConfigured, updateSyncState, syncSettings } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('workout');
   const [isLoggingWorkout, setIsLoggingWorkout] = useState<boolean>(false);
   
+  const [profile, setProfile] = useState<AthleteProfile>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_PROFILE_KEY);
+      return saved ? { ...DEFAULT_PROFILE, ...JSON.parse(saved) } : DEFAULT_PROFILE;
+    } catch {
+      return DEFAULT_PROFILE;
+    }
+  });
+
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [isAICoachOpen, setIsAICoachOpen] = useState<boolean>(false);
+
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_CUSTOM_EXERCISES_KEY);
@@ -211,13 +240,13 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateDraftSet = (exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => {
     setDraft(prev => {
       const currentSets = prev.exerciseSets[exerciseId] ? [...prev.exerciseSets[exerciseId]] : [
-        { id: '1', weight: 0, reps: 5 },
-        { id: '2', weight: 0, reps: 5 },
-        { id: '3', weight: 0, reps: 5 }
+        { id: '1', weight: 0, reps: 0 },
+        { id: '2', weight: 0, reps: 0 },
+        { id: '3', weight: 0, reps: 0 }
       ];
 
       while (currentSets.length <= setIndex) {
-        currentSets.push({ id: String(currentSets.length + 1), weight: 0, reps: 5 });
+        currentSets.push({ id: String(currentSets.length + 1), weight: 0, reps: 0 });
       }
 
       currentSets[setIndex] = {
@@ -239,12 +268,12 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     sounds.playPop();
     setDraft(prev => {
       const currentSets = prev.exerciseSets[exerciseId] ? [...prev.exerciseSets[exerciseId]] : [
-        { id: '1', weight: 0, reps: 5 },
-        { id: '2', weight: 0, reps: 5 },
-        { id: '3', weight: 0, reps: 5 }
+        { id: '1', weight: 0, reps: 0 },
+        { id: '2', weight: 0, reps: 0 },
+        { id: '3', weight: 0, reps: 0 }
       ];
       const lastWeight = currentSets.length > 0 ? currentSets[currentSets.length - 1].weight : 0;
-      const lastReps = currentSets.length > 0 ? currentSets[currentSets.length - 1].reps : 5;
+      const lastReps = currentSets.length > 0 ? currentSets[currentSets.length - 1].reps : 0;
 
       const newSet: ExerciseSet = {
         id: String(currentSets.length + 1),
@@ -389,7 +418,10 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
             name: ex.name,
             muscle: ex.muscle,
             sets: validSets.map(s => s.weight),
-            detailedSets: validSets
+            detailedSets: validSets.map(s => ({
+              ...s,
+              reps: s.reps > 0 ? s.reps : 5
+            }))
           });
         }
       }
@@ -614,6 +646,53 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const updateProfile = useCallback((updates: Partial<AthleteProfile>) => {
+    setProfile(prev => {
+      const next = { ...prev, ...updates };
+      try {
+        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(next));
+      } catch (err) {
+        console.error('Failed to save profile:', err);
+      }
+      return next;
+    });
+    sounds.playSuccess();
+    showToast({
+      title: '👤 Sporcu Profili Güncellendi',
+      description: `Kilo: ${updates.bodyWeightKg ?? profile.bodyWeightKg}kg • ${updates.gender === 'female' ? 'Kadın' : 'Erkek'}`,
+      type: 'success'
+    });
+  }, [profile.bodyWeightKg, showToast]);
+
+  const applyOverloadSuggestion = useCallback((exerciseId: string) => {
+    const ex = allExercises.find(e => e.id === exerciseId);
+    if (!ex) return;
+    const suggestion = getExerciseOverloadSuggestion(ex, workouts, profile);
+    
+    // Convert suggested sets to draft ExerciseSet[]
+    const newSets: ExerciseSet[] = suggestion.suggestedSets.map((s, idx) => ({
+      id: `${Date.now()}-${idx}`,
+      weight: s.weight,
+      reps: s.reps,
+      completed: false
+    }));
+
+    setDraft(prev => ({
+      ...prev,
+      exerciseSets: {
+        ...prev.exerciseSets,
+        [exerciseId]: newSets
+      }
+    }));
+
+    sounds.playSuccess();
+    showToast({
+      title: '🎯 Hedef Ağırlıklar Dolduruldu',
+      description: `${ex.name}: ${suggestion.suggestedSets.map(s => `${s.weight}kg x ${s.reps}`).join(', ')} uygulandı.`,
+      type: 'success'
+    });
+  }, [allExercises, workouts, profile, showToast]);
+
   const overallStats = calculateOverallPlayerStats(workouts, allExercises);
 
   return (
@@ -649,6 +728,13 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         importAllData,
         resetAllData,
         populateSampleData,
+        profile,
+        updateProfile,
+        applyOverloadSuggestion,
+        isProfileModalOpen,
+        setIsProfileModalOpen,
+        isAICoachOpen,
+        setIsAICoachOpen,
         syncWithCloud
       }}
     >

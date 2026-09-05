@@ -20,12 +20,34 @@ export interface ExerciseSet {
   completed?: boolean;
 }
 
+export interface MuscleActivation {
+  muscle: MuscleGroup;
+  ratio: number; // 0.0 - 1.0 (toplam 1.0)
+  role: 'primary' | 'secondary' | 'stabilizer';
+}
+
 export interface ExerciseDefinition {
   id: string;
   name: string;
   muscle: MuscleGroup;
   category: 'upper' | 'lower' | 'core' | 'cardio' | 'other';
+  muscles?: MuscleActivation[];
   isCustom?: boolean;
+}
+
+export interface MuscleLevelInfo {
+  muscle: MuscleGroup;
+  name: string;
+  level: number;
+  currentEXP: number;
+  levelBaseEXP: number;
+  nextLevelEXP: number;
+  progressPercent: number;
+  totalVolumeKg: number;
+  totalEffectiveSets: number;
+  rankTitle: string;
+  rankBadge: string;
+  color: string;
 }
 
 export interface SavedExercise {
@@ -101,5 +123,80 @@ export interface SyncDiffResult {
   localHasNew: boolean;
   cloudHasNew: boolean;
   changedCount: number;
+}
+
+export type Gender = 'male' | 'female';
+
+export interface AthleteProfile {
+  bodyWeightKg: number;
+  gender: Gender;
+  age?: number;
+  geminiApiKey?: string;
+  trainingGoal?: 'strength' | 'hypertrophy' | 'endurance';
+}
+
+export type StrengthTier = 'beginner' | 'novice' | 'intermediate' | 'advanced' | 'elite';
+
+export interface StrengthTierConfig {
+  id: StrengthTier;
+  title: string;
+  badge: string;
+  color: string;
+  gradient: string;
+  description: string;
+}
+
+export interface ExerciseStrengthAnalysis {
+  exerciseId: string;
+  exerciseName: string;
+  estimated1RM: number;
+  bestSetWeight: number;
+  bestSetReps: number;
+  bodyweightRatio: number;
+  strengthScore: number; // 0 - 100
+  tier: StrengthTier;
+  tierTitle: string;
+  tierBadge: string;
+  tierColor: string;
+  tierGradient: string;
+  tierProgressPct: number;
+  nextTierWeight: number;
+  nextTierTitle: string;
+}
+
+export interface OverloadSuggestion {
+  exerciseId: string;
+  exerciseName: string;
+  type: 'increase_weight' | 'increase_reps' | 'maintain' | 'deload_plateau';
+  title: string;
+  description: string;
+  suggestedSets: { weight: number; reps: number }[];
+  isPlateau: boolean;
+  plateauWorkoutsCount?: number;
+}
+
+export type VolumeLandmark = 'under_mev' | 'mev' | 'mav' | 'mrv_risk';
+
+export interface MuscleVolumeStatus {
+  muscle: MuscleGroup;
+  muscleName: string;
+  weeklySets: number;
+  landmark: VolumeLandmark;
+  landmarkLabel: string;
+  landmarkColor: string;
+  recommendedRange: string;
+  feedback: string;
+}
+
+export interface NextWorkoutSuggestion {
+  recommendedSplit: SplitType;
+  splitTitle: string;
+  reason: string;
+  priorityMuscles: {
+    muscle: MuscleGroup;
+    muscleName: string;
+    daysSinceTrained: number;
+    recoveryStatus: 'fresh' | 'recovered' | 'recovering';
+  }[];
 }
 

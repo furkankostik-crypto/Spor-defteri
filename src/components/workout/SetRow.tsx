@@ -46,7 +46,25 @@ export const SetRow: React.FC<SetRowProps> = ({
           min="0"
           max="999"
           value={weight === 0 ? '' : weight}
-          onChange={(e) => onChange('weight', parseFloat(e.target.value) || 0)}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === '') {
+              onChange('weight', 0);
+            } else {
+              const num = parseFloat(val);
+              onChange('weight', isNaN(num) ? 0 : Math.max(0, num));
+            }
+          }}
+          onFocus={(e) => {
+            try {
+              e.target.select();
+            } catch {}
+          }}
+          onClick={(e) => {
+            try {
+              (e.target as HTMLInputElement).select();
+            } catch {}
+          }}
           placeholder="0"
           className="form-input"
           style={{
@@ -77,10 +95,29 @@ export const SetRow: React.FC<SetRowProps> = ({
         <input
           type="number"
           step="1"
-          min="1"
+          min="0"
           max="99"
-          value={reps || 5}
-          onChange={(e) => onChange('reps', parseInt(e.target.value, 10) || 5)}
+          value={reps === 0 ? '' : reps}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === '') {
+              onChange('reps', 0);
+            } else {
+              const num = parseInt(val, 10);
+              onChange('reps', isNaN(num) ? 0 : Math.max(0, num));
+            }
+          }}
+          onFocus={(e) => {
+            try {
+              e.target.select();
+            } catch {}
+          }}
+          onClick={(e) => {
+            try {
+              (e.target as HTMLInputElement).select();
+            } catch {}
+          }}
+          placeholder="0"
           className="form-input"
           style={{
             padding: '8px 28px 8px 8px',

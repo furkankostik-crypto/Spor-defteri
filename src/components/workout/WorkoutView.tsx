@@ -13,17 +13,21 @@ import { muscleMetadata } from '../../data/muscleMetadata';
 import { sounds } from '../../utils/audio';
 import { HistoryCard } from '../history/HistoryCard';
 import { EditWorkoutModal } from '../history/EditWorkoutModal';
+import { getSuggestedNextWorkout } from '../../utils/recommendationEngine';
 import { 
   Calendar, 
   PlusCircle, 
   Flame, 
   Map, 
-  ListFilter,
-  Sparkles,
-  ChevronRight,
-  Plus,
-  ArrowLeft,
-  History as HistoryIcon
+  ListFilter, 
+  Sparkles, 
+  ChevronRight, 
+  Plus, 
+  ArrowLeft, 
+  History as HistoryIcon,
+  Bot,
+  Lightbulb,
+  Zap
 } from 'lucide-react';
 import { HeaderBurgerMenu } from '../layout/HeaderBurgerMenu';
 import { TimeFilterSelector, TimeFilterState } from './TimeFilterSelector';
@@ -39,8 +43,11 @@ export const WorkoutView: React.FC = () => {
     overallStats,
     populateSampleData,
     isLoggingWorkout,
-    setIsLoggingWorkout
+    setIsLoggingWorkout,
+    setIsAICoachOpen
   } = useWorkout();
+
+  const suggestedNext = getSuggestedNextWorkout(workouts);
 
   // Navigation state within workout entry
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
@@ -551,6 +558,107 @@ export const WorkoutView: React.FC = () => {
 
         {/* Top Right: Unified Burger Menu */}
         <HeaderBurgerMenu />
+      </div>
+
+      {/* Smart Next Workout & Muscle Readiness Card */}
+      <div
+        className="card"
+        style={{
+          background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95))',
+          border: '1px solid rgba(56, 189, 248, 0.3)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35), 0 0 20px rgba(56, 189, 248, 0.1)',
+          padding: '14px 16px',
+          marginBottom: 16,
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--cyan)' }}>
+            <Lightbulb size={16} />
+            <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Sıradaki İdman Önerisi
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playPop();
+              setIsAICoachOpen(true);
+            }}
+            style={{
+              background: 'rgba(168, 85, 247, 0.15)',
+              border: '1px solid rgba(168, 85, 247, 0.4)',
+              borderRadius: 'var(--radius-full)',
+              color: '#d8b4fe',
+              fontSize: 11,
+              fontWeight: 800,
+              padding: '3px 9px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+          >
+            <Bot size={12} />
+            <span>AI Koç</span>
+          </button>
+        </div>
+
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.01em', margin: '0 0 4px 0' }}>
+          {suggestedNext.splitTitle}
+        </h3>
+
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45, marginBottom: 10 }}>
+          {suggestedNext.reason}
+        </div>
+
+        {/* Ready Muscles Badges */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {suggestedNext.priorityMuscles.map((m) => (
+            <span
+              key={m.muscle}
+              style={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-sm)',
+                background: m.recoveryStatus === 'fresh' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                color: m.recoveryStatus === 'fresh' ? '#34d399' : 'var(--cyan)',
+                border: `1px solid ${m.recoveryStatus === 'fresh' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(56, 189, 248, 0.3)'}`
+              }}
+            >
+              {m.muscleName} ({m.daysSinceTrained} gün dinlendi)
+            </span>
+          ))}
+        </div>
+
+        {/* Action Button: Start Recommended Workout */}
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playPop();
+            updateDraftSplit(suggestedNext.recommendedSplit);
+            handleStartNewWorkout();
+          }}
+          className="btn btn-primary"
+          style={{
+            width: '100%',
+            height: 38,
+            fontSize: 13,
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            background: 'linear-gradient(135deg, #0284c7, #38bdf8)',
+            boxShadow: '0 4px 14px rgba(56, 189, 248, 0.35)'
+          }}
+        >
+          <Zap size={14} />
+          <span>Bu Antrenmanı Başlat ({suggestedNext.splitTitle})</span>
+        </button>
       </div>
 
       {/* Time & Split Filters */}

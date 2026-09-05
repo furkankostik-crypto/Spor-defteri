@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
-import { calculateExerciseLevelInfo } from '../../utils/calculations';
+import { calculateExerciseLevelInfo, calculateProportionalMuscleVolume } from '../../utils/calculations';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { MuscleGroup, ExerciseLevelInfo } from '../../types/workout';
 import { OverallRankCard } from '../levels/OverallRankCard';
 import { ExerciseLevelCard } from '../levels/ExerciseLevelCard';
+import { MuscleMasteryCard } from '../levels/MuscleMasteryCard';
 import { BackupModal } from '../common/BackupModal';
 import { HeaderBurgerMenu } from '../layout/HeaderBurgerMenu';
+import { ScientificVolumeCard } from './ScientificVolumeCard';
 import { sounds } from '../../utils/audio';
 import { 
   BarChart3, 
@@ -23,11 +25,19 @@ import {
   DownloadCloud, 
   Settings,
   Search, 
-  SlidersHorizontal 
+  SlidersHorizontal,
+  Bot
 } from 'lucide-react';
 
 export const ProgressView: React.FC = () => {
-  const { overallStats, workouts, allExercises, soundEnabled, setSoundEnabled } = useWorkout();
+  const { 
+    overallStats, 
+    workouts, 
+    allExercises, 
+    soundEnabled, 
+    setSoundEnabled,
+    setIsAICoachOpen
+  } = useWorkout();
   
   // Segment tab: 'stats' (Genel Analiz) or 'levels' (Egzersiz Seviyeleri & PR'lar)
   const [activeSegment, setActiveSegment] = useState<'stats' | 'levels'>('stats');
@@ -99,22 +109,12 @@ export const ProgressView: React.FC = () => {
     });
   }, [filteredExercises, exerciseInfoMap, sortBy]);
 
-  // Calculate volume distribution per muscle group
-  const muscleVolume: Partial<Record<MuscleGroup, number>> = {};
-  workouts.forEach((w) => {
-    w.exercises.forEach((ex) => {
-      const muscle = ex.muscle || allExercises.find(e => e.id === ex.id)?.muscle || 'chest';
-      let vol = 0;
-      if (ex.detailedSets) {
-        ex.detailedSets.forEach(s => vol += s.weight * (s.reps || 5));
-      } else if (ex.sets) {
-        ex.sets.forEach(wgt => vol += wgt * 5);
-      }
-      muscleVolume[muscle] = (muscleVolume[muscle] || 0) + vol;
-    });
-  });
+  // Calculate volume distribution per muscle group using scientific proportional ratios
+  const muscleVolume = useMemo(() => {
+    return calculateProportionalMuscleVolume(workouts, allExercises);
+  }, [workouts, allExercises]);
 
-  const muscleList: { muscle: MuscleGroup; label: string; volume: number }[] = [
+  const muscleList: { muscle: MuscleGroup; label: string; volume: number }[] = useMemo(() => [
     { muscle: 'chest' as MuscleGroup, label: 'Göğüs', volume: muscleVolume['chest'] || 0 },
     { muscle: 'back' as MuscleGroup, label: 'Sırt & Kanat', volume: muscleVolume['back'] || 0 },
     { muscle: 'shoulder' as MuscleGroup, label: 'Omuz', volume: muscleVolume['shoulder'] || 0 },
@@ -122,9 +122,10 @@ export const ProgressView: React.FC = () => {
     { muscle: 'triceps' as MuscleGroup, label: 'Triceps', volume: muscleVolume['triceps'] || 0 },
     { muscle: 'quads' as MuscleGroup, label: 'Ön Bacak', volume: muscleVolume['quads'] || 0 },
     { muscle: 'hamstring' as MuscleGroup, label: 'Arka Bacak', volume: muscleVolume['hamstring'] || 0 },
+    { muscle: 'glutes' as MuscleGroup, label: 'Kalça', volume: muscleVolume['glutes'] || 0 },
     { muscle: 'calves' as MuscleGroup, label: 'Kalf', volume: muscleVolume['calves'] || 0 },
     { muscle: 'abs' as MuscleGroup, label: 'Karın', volume: muscleVolume['abs'] || 0 }
-  ].sort((a, b) => b.volume - a.volume);
+  ].sort((a, b) => b.volume - a.volume), [muscleVolume]);
 
   const maxMuscleVol = Math.max(...muscleList.map(m => m.volume), 1);
 
@@ -161,6 +162,67 @@ export const ProgressView: React.FC = () => {
         <HeaderBurgerMenu />
       </div>
 
+      {/* AI Bilimsel Koç Hero Banner */}
+      <div
+        onClick={() => {
+          sounds.playPop();
+          setIsAICoachOpen(true);
+        }}
+        style={{
+          background: 'linear-gradient(135deg, rgba(126, 34, 206, 0.22), rgba(192, 132, 252, 0.12))',
+          border: '1px solid rgba(168, 85, 247, 0.35)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '12px 14px',
+          marginBottom: 14,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 4px 16px rgba(168, 85, 247, 0.15)',
+          transition: 'all 0.2s'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 'var(--radius-md)',
+              background: 'linear-gradient(135deg, #7e22ce, #c084fc)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)',
+              flexShrink: 0
+            }}
+          >
+            <Bot size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>Bilimsel AI Antrenör</span>
+              <span 
+                style={{ 
+                  fontSize: 9, 
+                  background: 'rgba(168, 85, 247, 0.3)', 
+                  color: '#e9d5ff', 
+                  padding: '1px 5px', 
+                  borderRadius: 'var(--radius-sm)',
+                  fontWeight: 800 
+                }}
+              >
+                YAPAY ZEKA
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Gelişim analizi, plato çözümleri ve kişisel koçluk için dokun
+            </div>
+          </div>
+        </div>
+        <span style={{ fontSize: 12, color: '#c084fc', fontWeight: 800 }}>Sor ➔</span>
+      </div>
+
       {/* Segmented Tab Switcher */}
       <div className="segment-control">
         <button
@@ -184,7 +246,7 @@ export const ProgressView: React.FC = () => {
           className={`segment-btn ${activeSegment === 'levels' ? 'active' : ''}`}
         >
           <Trophy size={15} />
-          <span>Level & PR (Egzersizler)</span>
+          <span>GymLevels & PR</span>
         </button>
       </div>
 
@@ -326,6 +388,9 @@ export const ProgressView: React.FC = () => {
             )}
           </div>
 
+          {/* Bilimsel Haftalık Hipertrofi Hacmi (RP Landmarks) */}
+          <ScientificVolumeCard />
+
           {/* Muscle Group Distribution Bar Chart */}
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -455,6 +520,9 @@ export const ProgressView: React.FC = () => {
         <div style={{ animation: 'fadeIn 0.2s ease-out' }}>
           {/* Overall Character Rank Hero Card */}
           <OverallRankCard />
+
+          {/* Regional Muscle Mastery Level Cards */}
+          <MuscleMasteryCard />
 
           {/* Filter and Search Bar */}
           <div style={{ marginBottom: 16 }}>
