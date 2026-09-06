@@ -21,9 +21,7 @@ import {
   Smartphone,
   Scale,
   Bot,
-  Sparkles,
-  Maximize,
-  Minimize
+  Sparkles
 } from 'lucide-react';
 import { usePwaInstall } from '../../context/PwaInstallContext';
 
@@ -42,30 +40,8 @@ export const HeaderBurgerMenu: React.FC = () => {
 
   const [isOpen, setIsOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
-  const toggleFullscreen = async () => {
-    sounds.playPop();
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch {
-      // Ignored if not supported or restricted
-    }
-  };
 
   // Close when clicking outside
   useEffect(() => {
@@ -371,37 +347,6 @@ export const HeaderBurgerMenu: React.FC = () => {
               </div>
             )}
 
-            {/* SECTION: GÖRÜNÜM VE EKRAN */}
-            <div style={{ marginBottom: 12 }}>
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="burger-menu-item"
-                style={{
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                  background: isFullscreen 
-                    ? 'rgba(56, 189, 248, 0.15)' 
-                    : 'rgba(255, 255, 255, 0.04)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="burger-item-icon" style={{ background: 'rgba(56, 189, 248, 0.18)', color: 'var(--cyan)' }}>
-                    {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>
-                      {isFullscreen ? 'Tam Ekrandan Çık' : 'Tam Ekran Modu'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {isFullscreen ? 'Standart pencere moduna dön' : 'Çentik & kamera uyumlu tam ekran'}
-                    </div>
-                  </div>
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--cyan)', background: 'rgba(56, 189, 248, 0.12)', padding: '2px 6px', borderRadius: 4 }}>
-                  {isFullscreen ? 'AÇIK' : 'GEÇ'}
-                </span>
-              </button>
-            </div>
 
             {/* SECTION: BİLİMSEL KOÇLUK & GYMLEVELS */}
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, paddingLeft: 4 }}>

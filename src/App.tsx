@@ -24,6 +24,83 @@ export const App: React.FC = () => {
     };
   }, [isLoggingWorkout]);
 
+  // Varsayılan tam ekran modu (Default Fullscreen)
+  useEffect(() => {
+    let hasUserExited = false;
+    let hasEnteredOnce = false;
+
+    const requestFullscreen = () => {
+      if (hasUserExited) return;
+
+      try {
+        const docEl = document.documentElement as HTMLElement & {
+          webkitRequestFullscreen?: () => Promise<void>;
+          mozRequestFullScreen?: () => Promise<void>;
+          msRequestFullscreen?: () => Promise<void>;
+        };
+
+        const isFullscreen = Boolean(
+          document.fullscreenElement ||
+          (document as any).webkitFullscreenElement ||
+          (document as any).mozFullScreenElement ||
+          (document as any).msFullscreenElement
+        );
+
+        if (!isFullscreen) {
+          if (docEl.requestFullscreen) {
+            docEl.requestFullscreen().catch(() => {});
+          } else if (docEl.webkitRequestFullscreen) {
+            docEl.webkitRequestFullscreen().catch?.(() => {});
+          } else if (docEl.mozRequestFullScreen) {
+            docEl.mozRequestFullScreen().catch?.(() => {});
+          } else if (docEl.msRequestFullscreen) {
+            docEl.msRequestFullscreen().catch?.(() => {});
+          }
+        }
+      } catch {
+        // Tarayıcı kısıtlamaları veya desteklenmeyen cihazlar için sessizce geç
+      }
+    };
+
+    // 1. Doğrudan tam ekranı başlatmayı dene
+    requestFullscreen();
+
+    // 2. Tarayıcı güvenlik kısıtlamaları gereği ilk etkileşimde (dokunma/tıklama) otomatik tam ekrana geçir
+    const handleFullscreenChange = () => {
+      const isFullscreen = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+
+      if (isFullscreen) {
+        hasEnteredOnce = true;
+      } else if (hasEnteredOnce) {
+        // Kullanıcı daha önce tam ekrana girdi ve sonrasında manuel çıktıysa (ör. ESC)
+        hasUserExited = true;
+      }
+    };
+
+    const handleInteraction = () => {
+      if (!hasUserExited) {
+        requestFullscreen();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    window.addEventListener('click', handleInteraction, { passive: true });
+    window.addEventListener('touchstart', handleInteraction, { passive: true });
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.removeEventListener('click', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+    };
+  }, []);
+
   return (
     <>
       <main style={{ flex: 1 }}>

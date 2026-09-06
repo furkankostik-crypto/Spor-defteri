@@ -53,6 +53,14 @@
   }
 }
 
+:fullscreen {
+  --safe-top: max(env(safe-area-inset-top, 0px), 8px);
+}
+
+:-webkit-full-screen {
+  --safe-top: max(env(safe-area-inset-top, 0px), 8px);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
