@@ -188,6 +188,38 @@ export interface MuscleVolumeStatus {
   feedback: string;
 }
 
+export type PTGuidanceState = 'today_completed' | 'workout_ready' | 'rest_day' | 'comeback';
+
+export interface PTDailyGuidance {
+  state: PTGuidanceState;
+  headline: string;
+  subline: string;
+  advice: string;
+  nextSessionTarget: string;
+  nextSessionTiming: string;
+  recommendedSplit: SplitType;
+  todayWorkoutSummary?: {
+    splitName: string;
+    totalSets: number;
+    totalVolumeKg: number;
+    exerciseCount: number;
+    date: string;
+  };
+  recoveryTips: string[];
+  suggestedFocusMuscles: MuscleGroup[];
+  badge: {
+    text: string;
+    color: string;
+    bg: string;
+    border: string;
+    icon: string;
+  };
+  actionButton?: {
+    text: string;
+    split: SplitType;
+  };
+}
+
 export interface NextWorkoutSuggestion {
   recommendedSplit: SplitType;
   splitTitle: string;
@@ -198,5 +230,21 @@ export interface NextWorkoutSuggestion {
     daysSinceTrained: number;
     recoveryStatus: 'fresh' | 'recovered' | 'recovering';
   }[];
+  recommendedMuscles?: MuscleGroup[];
+  muscleRecoveryMap?: Partial<Record<MuscleGroup, {
+    daysSinceTrained: number;
+    recoveryStatus: 'fresh' | 'recovered' | 'recovering';
+  }>>;
+  isTodayCompleted?: boolean;
+  todayWorkoutSummary?: {
+    splitName: string;
+    totalSets: number;
+    totalVolumeKg: number;
+    exerciseCount: number;
+    date: string;
+  };
+  ptGuidance?: PTDailyGuidance;
 }
+
+
 

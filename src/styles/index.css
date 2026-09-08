@@ -46,10 +46,22 @@
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
-/* Edge-to-edge PWA Standalone & Fullscreen notch protection */
+/* Edge-to-edge PWA Standalone & Fullscreen notch protection & native app feel */
 @media all and (display-mode: fullscreen), all and (display-mode: standalone) {
   :root {
     --safe-top: max(env(safe-area-inset-top, 0px), 8px);
+  }
+
+  html, body {
+    overscroll-behavior: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input, textarea {
+    user-select: text;
+    -webkit-user-select: text;
   }
 }
 
@@ -577,13 +589,82 @@ input[type=number] {
   filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.65));
 }
 
+/* Recommended Muscle Map Styles & Animations */
+.radar-pulse-rec {
+  animation: radarWaveRec 1.8s infinite cubic-bezier(0.25, 1, 0.5, 1);
+  transform-origin: center;
+}
+
+@keyframes radarWaveRec {
+  0% {
+    r: 6;
+    opacity: 1;
+    stroke-width: 2.2;
+    stroke: #38bdf8;
+  }
+  60% {
+    r: 18;
+    opacity: 0.45;
+    stroke-width: 1.5;
+    stroke: #0284c7;
+  }
+  100% {
+    r: 25;
+    opacity: 0;
+    stroke-width: 0.5;
+    stroke: #38bdf8;
+  }
+}
+
+.hotspot-pin.is-recommended:hover circle:nth-child(2) {
+  filter: drop-shadow(0 0 8px #38bdf8);
+}
+
+.rec-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.08);
+  color: #e0f2fe;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.rec-chip-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+}
+
+.rec-chip-btn.is-active {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+}
+
+.rec-chip-btn.is-trained {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #a7f3d0;
+}
+
+
 /* Floating Action Button (FAB) */
 .fab-btn {
   position: fixed;
-  right: 20px;
-  bottom: calc(80px + var(--safe-bottom));
-  width: 54px;
-  height: 54px;
+  right: max(20px, calc((100vw - 520px) / 2 + 20px));
+  bottom: calc(76px + var(--safe-bottom));
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), #e11d48);
   color: #ffffff;
@@ -591,19 +672,105 @@ input[type=number] {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 28px rgba(255, 71, 87, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(255, 71, 87, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   z-index: 850;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fab-btn:hover {
-  transform: scale(1.08) translateY(-2px);
-  box-shadow: 0 14px 34px rgba(255, 71, 87, 0.65);
+  transform: scale(1.06) translateY(-2px);
+  box-shadow: 0 12px 30px rgba(255, 71, 87, 0.6);
 }
 
 .fab-btn:active {
-  transform: scale(0.92);
+  transform: scale(0.94);
+}
+
+/* FAB Notification Badge */
+.fab-badge-container {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  transform: translate(22%, -22%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.fab-notification-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 900;
+  line-height: 1;
+  border: 2px solid #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 10px rgba(56, 189, 248, 0.5);
+  z-index: 2;
+}
+
+.fab-badge-ping {
+  position: absolute;
+  inset: -2px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.45);
+  z-index: 1;
+  animation: fabBadgePulse 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes fabBadgePulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* FAB Hover Tooltip */
+.fab-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #f1f5f9;
+  padding: 5px 11px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(56, 189, 248, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fab-btn:hover .fab-tooltip {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Segmented Control Switcher */

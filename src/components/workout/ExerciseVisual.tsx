@@ -12,6 +12,8 @@ export interface ExerciseVisualProps {
   className?: string;
   showBadgeContainer?: boolean;
   style?: React.CSSProperties;
+  objectFit?: 'cover' | 'contain';
+  onImageClick?: () => void;
 }
 
 export interface ExerciseEquipmentBadge {
@@ -198,7 +200,9 @@ export const ExerciseVisual: React.FC<ExerciseVisualProps> = ({
   height,
   className = '',
   showBadgeContainer: _showBadgeContainer = false,
-  style = {}
+  style = {},
+  objectFit = 'contain',
+  onImageClick
 }) => {
   const [imgError, setImgError] = useState(false);
   const meta = muscleMetadata[muscle] || muscleMetadata.chest;
@@ -212,8 +216,11 @@ export const ExerciseVisual: React.FC<ExerciseVisualProps> = ({
 
   // Render 3D High-Detail Anatomical Movement Figure
   if (imageSrc && !imgError) {
+    const isContain = objectFit === 'contain';
+
     return (
       <div
+        onClick={onImageClick}
         style={{
           position: 'relative',
           width: w,
@@ -222,24 +229,47 @@ export const ExerciseVisual: React.FC<ExerciseVisualProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
-          borderRadius: 'var(--radius-md)',
-          background: 'radial-gradient(circle at center, rgba(30, 41, 59, 0.45) 0%, rgba(11, 17, 30, 0.95) 100%)',
+          borderRadius: style.borderRadius !== undefined ? style.borderRadius : 'var(--radius-md)',
+          background: 'radial-gradient(circle at center, rgba(30, 41, 59, 0.5) 0%, rgba(10, 15, 26, 0.98) 100%)',
           boxShadow: `0 3px 12px rgba(0, 0, 0, 0.4), 0 0 10px ${primaryColor}15`,
+          cursor: onImageClick ? 'pointer' : undefined,
           ...style
         }}
         className={`exercise-visual-image-wrapper ${className}`}
       >
+        {/* Ambient blurred backdrop for letterboxing fill so wide containers stay immersive & seamless */}
+        {isContain && (
+          <img
+            src={imageSrc}
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: '-10%',
+              width: '120%',
+              height: '120%',
+              objectFit: 'cover',
+              filter: 'blur(22px) brightness(0.35) saturate(1.3)',
+              opacity: 0.65,
+              pointerEvents: 'none'
+            }}
+          />
+        )}
+
+        {/* Sharp, uncropped high-definition 3D movement visual */}
         <img
           src={imageSrc}
           alt={exerciseId}
           onError={() => setImgError(true)}
           style={{
+            position: 'relative',
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
+            objectFit: objectFit,
+            objectPosition: 'center center',
             display: 'block',
-            filter: 'contrast(1.04) brightness(0.98)',
-            transform: 'scale(1.02)',
+            filter: 'contrast(1.04) brightness(1.0) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.65))',
+            zIndex: 1,
             transition: 'transform 0.3s ease'
           }}
           loading="lazy"
@@ -251,8 +281,9 @@ export const ExerciseVisual: React.FC<ExerciseVisualProps> = ({
             position: 'absolute',
             inset: 0,
             pointerEvents: 'none',
-            boxShadow: `inset 0 0 12px rgba(11, 17, 30, 0.6), inset 0 0 1px ${primaryColor}40`,
-            borderRadius: 'inherit'
+            boxShadow: `inset 0 0 16px rgba(10, 15, 26, 0.7), inset 0 0 1px ${primaryColor}40`,
+            borderRadius: 'inherit',
+            zIndex: 2
           }}
         />
       </div>
@@ -276,7 +307,7 @@ export const ExerciseVisual: React.FC<ExerciseVisualProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: style.borderRadius !== undefined ? style.borderRadius : 'var(--radius-md)',
         ...style
       }}
       className={`exercise-visual-wrapper ${className}`}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 
 interface SetRowProps {
@@ -9,6 +9,7 @@ interface SetRowProps {
   canDelete: boolean;
   onDelete: () => void;
   onChange: (field: 'weight' | 'reps', value: number) => void;
+  accentColor?: string;
 }
 
 export const SetRow: React.FC<SetRowProps> = ({
@@ -17,24 +18,43 @@ export const SetRow: React.FC<SetRowProps> = ({
   reps,
   canDelete,
   onDelete,
-  onChange
+  onChange,
+  accentColor = '#38bdf8'
 }) => {
+  const [weightFocused, setWeightFocused] = useState(false);
+  const [repsFocused, setRepsFocused] = useState(false);
+
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '32px 1fr 1fr 36px',
+        gridTemplateColumns: '38px 1fr 1fr 38px',
         gap: 8,
         alignItems: 'center',
-        background: 'rgba(15, 23, 42, 0.6)',
+        background: 'rgba(15, 23, 42, 0.55)',
         padding: '6px 8px',
         borderRadius: 'var(--radius-md)',
-        border: '1px solid rgba(255, 255, 255, 0.04)',
-        marginBottom: 6
+        border: '1px solid rgba(255, 255, 255, 0.05)',
+        marginBottom: 7,
+        transition: 'border-color 0.2s, background 0.2s'
       }}
     >
       {/* Set Label */}
-      <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)' }}>
+      <div
+        style={{
+          textAlign: 'center',
+          fontSize: 12.5,
+          fontWeight: 800,
+          color: 'var(--text-muted)',
+          background: 'rgba(255, 255, 255, 0.04)',
+          borderRadius: 'var(--radius-sm)',
+          height: 42,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid rgba(255, 255, 255, 0.06)'
+        }}
+      >
         #{setIndex + 1}
       </div>
 
@@ -56,10 +76,12 @@ export const SetRow: React.FC<SetRowProps> = ({
             }
           }}
           onFocus={(e) => {
+            setWeightFocused(true);
             try {
               e.target.select();
             } catch {}
           }}
+          onBlur={() => setWeightFocused(false)}
           onClick={(e) => {
             try {
               (e.target as HTMLInputElement).select();
@@ -68,22 +90,30 @@ export const SetRow: React.FC<SetRowProps> = ({
           placeholder="0"
           className="form-input"
           style={{
-            padding: '8px 24px 8px 8px',
+            padding: '8px 28px 8px 10px',
             textAlign: 'center',
-            fontWeight: 700,
-            fontSize: 14,
-            height: 38
+            fontWeight: 800,
+            fontSize: 15,
+            height: 42,
+            background: 'rgba(10, 16, 28, 0.85)',
+            borderColor: weightFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
+            boxShadow: weightFocused ? `0 0 0 3px ${accentColor}25` : 'none',
+            color: '#ffffff',
+            borderRadius: 'var(--radius-sm)',
+            transition: 'border-color 0.2s, box-shadow 0.2s'
           }}
         />
         <span
           style={{
             position: 'absolute',
-            right: 6,
+            right: 8,
             top: '50%',
             transform: 'translateY(-50%)',
-            fontSize: 10,
-            color: 'var(--text-dim)',
-            pointerEvents: 'none'
+            fontSize: 11,
+            fontWeight: 700,
+            color: weightFocused ? accentColor : 'var(--text-dim)',
+            pointerEvents: 'none',
+            transition: 'color 0.2s'
           }}
         >
           kg
@@ -108,10 +138,12 @@ export const SetRow: React.FC<SetRowProps> = ({
             }
           }}
           onFocus={(e) => {
+            setRepsFocused(true);
             try {
               e.target.select();
             } catch {}
           }}
+          onBlur={() => setRepsFocused(false)}
           onClick={(e) => {
             try {
               (e.target as HTMLInputElement).select();
@@ -120,22 +152,30 @@ export const SetRow: React.FC<SetRowProps> = ({
           placeholder="0"
           className="form-input"
           style={{
-            padding: '8px 28px 8px 8px',
+            padding: '8px 38px 8px 10px',
             textAlign: 'center',
-            fontWeight: 700,
-            fontSize: 14,
-            height: 38
+            fontWeight: 800,
+            fontSize: 15,
+            height: 42,
+            background: 'rgba(10, 16, 28, 0.85)',
+            borderColor: repsFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
+            boxShadow: repsFocused ? `0 0 0 3px ${accentColor}25` : 'none',
+            color: '#ffffff',
+            borderRadius: 'var(--radius-sm)',
+            transition: 'border-color 0.2s, box-shadow 0.2s'
           }}
         />
         <span
           style={{
             position: 'absolute',
-            right: 6,
+            right: 8,
             top: '50%',
             transform: 'translateY(-50%)',
             fontSize: 10,
-            color: 'var(--text-dim)',
-            pointerEvents: 'none'
+            fontWeight: 700,
+            color: repsFocused ? accentColor : 'var(--text-dim)',
+            pointerEvents: 'none',
+            transition: 'color 0.2s'
           }}
         >
           tekrar
@@ -154,12 +194,12 @@ export const SetRow: React.FC<SetRowProps> = ({
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-dim)',
               cursor: 'pointer',
-              padding: 6,
+              padding: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 30,
-              height: 30,
+              width: 34,
+              height: 34,
               transition: 'all 0.2s'
             }}
             onMouseEnter={(e) => {
@@ -174,10 +214,10 @@ export const SetRow: React.FC<SetRowProps> = ({
             }}
             title="Seti Sil"
           >
-            <Trash2 size={13} />
+            <Trash2 size={14} />
           </button>
         ) : (
-          <div style={{ width: 30, height: 30 }} />
+          <div style={{ width: 34, height: 34 }} />
         )}
       </div>
     </div>

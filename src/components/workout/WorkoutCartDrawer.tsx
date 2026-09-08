@@ -3,6 +3,7 @@ import { useWorkout } from '../../context/WorkoutContext';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { sounds } from '../../utils/audio';
+import { calculateWorkoutSessionTarget } from '../../utils/workoutTargets';
 import { 
   ShoppingBag, 
   ChevronUp, 
@@ -31,6 +32,14 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
   } = useWorkout();
 
   const [isOpen, setIsOpen] = useState(false);
+
+  const sessionTarget = React.useMemo(() => {
+    return calculateWorkoutSessionTarget(
+      draft.splitType,
+      draft.exerciseSets,
+      allExercises
+    );
+  }, [draft.splitType, draft.exerciseSets, allExercises]);
 
   // Compute active cart items with valid sets (weight > 0)
   const activeCartItems = allExercises
@@ -167,9 +176,23 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: '#ffffff' }}>
                   {totalSetsCount > 0 
-                    ? `Antrenman Sepeti (${totalSetsCount} Set)` 
+                    ? `Antrenman Sepeti (${totalSetsCount}/${sessionTarget.targetSetsCount} Set)` 
                     : 'Antrenman Sepeti'}
                 </span>
+                {sessionTarget.overallProgressPercent > 0 && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: sessionTarget.isTargetMet ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                      color: sessionTarget.isTargetMet ? '#34d399' : 'var(--cyan)',
+                      padding: '1px 6px',
+                      borderRadius: 'var(--radius-sm)'
+                    }}
+                  >
+                    %{sessionTarget.overallProgressPercent}
+                  </span>
+                )}
                 {distinctExercisesCount > 0 && (
                   <span
                     style={{
@@ -192,10 +215,14 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
                       {totalVolumeSum.toLocaleString()} kg Hacim
                     </span>
                     <span>•</span>
-                    <span style={{ color: 'var(--text-dim)' }}>Listeyi görmek için dokunun</span>
+                    <span style={{ color: 'var(--text-dim)' }}>
+                      {sessionTarget.isTargetMet ? 'Hedef Bitti 🏆' : `${sessionTarget.remainingSetsCount} Set Kaldı`}
+                    </span>
                   </>
                 ) : (
-                  <span style={{ color: 'var(--text-dim)' }}>Hareket seçip ağırlık girin</span>
+                  <span style={{ color: 'var(--text-dim)' }}>
+                    Hedef: {sessionTarget.targetExercisesCount} Hareket • {sessionTarget.targetSetsCount} Set
+                  </span>
                 )}
               </div>
             </div>
@@ -321,8 +348,8 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
                   </h3>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     {totalSetsCount > 0 
-                      ? `${distinctExercisesCount} Farklı Hareket • Toplam ${totalSetsCount} Set Girildi` 
-                      : 'Henüz antrenman hareketi girilmedi'}
+                      ? `${distinctExercisesCount}/${sessionTarget.targetExercisesCount} Hareket • ${totalSetsCount}/${sessionTarget.targetSetsCount} Set (%${sessionTarget.overallProgressPercent})` 
+                      : `Seans Hedefi: ${sessionTarget.targetExercisesCount} Hareket • ${sessionTarget.targetSetsCount} Set`}
                   </p>
                 </div>
               </div>

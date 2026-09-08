@@ -16,6 +16,8 @@ import {
   Zap
 } from 'lucide-react';
 
+import { getSuggestedNextWorkout } from '../../utils/recommendationEngine';
+
 interface MuscleDetailViewProps {
   muscle: MuscleGroup;
   onBack: () => void;
@@ -27,11 +29,16 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
   onBack,
   onSelectOtherMuscle
 }) => {
-  const { allExercises, draft } = useWorkout();
+  const { allExercises, draft, workouts } = useWorkout();
   const [isAddCustomOpen, setIsAddCustomOpen] = useState(false);
   const [selectedOverlayExercise, setSelectedOverlayExercise] = useState<ExerciseDefinition | null>(null);
 
+  const suggestedNext = getSuggestedNextWorkout(workouts);
+  const isRecommended = suggestedNext.recommendedMuscles?.includes(muscle);
+  const recoveryInfo = suggestedNext.muscleRecoveryMap?.[muscle];
+
   const meta = muscleMetadata[muscle] || muscleMetadata.chest;
+
 
   // Filter primary and synergist exercises for this specific muscle
   const primaryExercises = allExercises.filter(
@@ -149,16 +156,41 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: 24, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
                 {meta.name}
               </h2>
+              {isRecommended && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    background: 'linear-gradient(135deg, #0284c7, #38bdf8)',
+                    color: '#ffffff',
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full)',
+                    boxShadow: '0 2px 8px rgba(56, 189, 248, 0.4)'
+                  }}
+                >
+                  <Zap size={11} fill="currentColor" />
+                  <span>Günün Önerisi</span>
+                </span>
+              )}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
               {meta.latinName} • {meta.description}
+              {recoveryInfo?.daysSinceTrained !== undefined && (
+                <span style={{ color: isRecommended ? 'var(--cyan)' : 'var(--text-dim)', fontWeight: 600 }}>
+                  {' • '}{recoveryInfo.daysSinceTrained} gün dinlendi
+                </span>
+              )}
             </div>
           </div>
         </div>
+
 
         {/* Live Set & Volume Indicator if active in current session */}
         {muscleSetsCount > 0 && (
@@ -221,6 +253,7 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
           {muscleList.map((m) => {
             const mMeta = muscleMetadata[m];
             const isCurrent = m === muscle;
+            const isOtherRec = suggestedNext.recommendedMuscles?.includes(m);
 
             return (
               <button
@@ -236,11 +269,19 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
                   gap: 5,
                   padding: '6px 10px',
                   borderRadius: 'var(--radius-full)',
-                  border: isCurrent ? `1px solid ${mMeta.color}` : '1px solid var(--border)',
-                  background: isCurrent ? `${mMeta.color}25` : 'var(--input-bg)',
-                  color: isCurrent ? '#ffffff' : 'var(--text-muted)',
+                  border: isCurrent
+                    ? `1px solid ${mMeta.color}`
+                    : isOtherRec
+                    ? '1px solid rgba(56, 189, 248, 0.4)'
+                    : '1px solid var(--border)',
+                  background: isCurrent
+                    ? `${mMeta.color}25`
+                    : isOtherRec
+                    ? 'rgba(56, 189, 248, 0.08)'
+                    : 'var(--input-bg)',
+                  color: isCurrent ? '#ffffff' : isOtherRec ? '#e0f2fe' : 'var(--text-muted)',
                   fontSize: 11,
-                  fontWeight: isCurrent ? 700 : 500,
+                  fontWeight: isCurrent || isOtherRec ? 700 : 500,
                   whiteSpace: 'nowrap',
                   cursor: 'pointer',
                   transition: 'all 0.2s'
@@ -248,6 +289,9 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
               >
                 <AnatomyIcon muscle={m} size={14} />
                 <span>{mMeta.name}</span>
+                {isOtherRec && !isCurrent && (
+                  <span style={{ color: 'var(--cyan)', fontSize: 10, fontWeight: 900 }}>⚡</span>
+                )}
                 {isCurrent && <ChevronRight size={12} color={mMeta.color} />}
               </button>
             );

@@ -24,14 +24,45 @@ export const App: React.FC = () => {
     };
   }, [isLoggingWorkout]);
 
-  // Varsayılan tam ekran modu (Default Fullscreen)
+  // Varsayılan tam ekran modu (Yalnızca PWA / Yüklü Uygulama İçin - Native App Deneyimi)
   useEffect(() => {
-    let hasUserExited = false;
-    let hasEnteredOnce = false;
+    // 1. Standalone / Fullscreen display mode (Android PWA, Desktop PWA, Chrome/Edge kurulu app)
+    const isStandaloneMode = 
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      window.matchMedia('(display-mode: minimal-ui)').matches;
 
-    const requestFullscreen = () => {
-      if (hasUserExited) return;
+    // 2. iOS Ana Ekran kısayolu
+    const isIosStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === true;
 
+    // 3. Android TWA / WebAPK
+    const isAndroidApp = document.referrer.includes('android-app://');
+
+    // 4. Manifest start_url query parametresi (?source=pwa)
+    const isPwaSource = window.location.search.includes('source=pwa') || sessionStorage.getItem('spor_pwa_launched') === 'true';
+    if (isPwaSource) {
+      try {
+        sessionStorage.setItem('spor_pwa_launched', 'true');
+      } catch {
+        // sessizce geç
+      }
+    }
+
+    const isInstalledApp = Boolean(isStandaloneMode || isIosStandalone || isAndroidApp || isPwaSource);
+
+    // Site üzerinden tarayıcı sekmesinde deneyen kullanıcılar için tam ekran tetiklenmez
+    if (!isInstalledApp) {
+      return;
+    }
+
+    const checkIsFullscreen = () => Boolean(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+
+    const requestFullscreen = async () => {
       try {
         const docEl = document.documentElement as HTMLElement & {
           webkitRequestFullscreen?: () => Promise<void>;
@@ -39,63 +70,67 @@ export const App: React.FC = () => {
           msRequestFullscreen?: () => Promise<void>;
         };
 
-        const isFullscreen = Boolean(
-          document.fullscreenElement ||
-          (document as any).webkitFullscreenElement ||
-          (document as any).mozFullScreenElement ||
-          (document as any).msFullscreenElement
-        );
-
-        if (!isFullscreen) {
+        if (!checkIsFullscreen()) {
           if (docEl.requestFullscreen) {
-            docEl.requestFullscreen().catch(() => {});
+            await docEl.requestFullscreen();
           } else if (docEl.webkitRequestFullscreen) {
-            docEl.webkitRequestFullscreen().catch?.(() => {});
+            await docEl.webkitRequestFullscreen();
           } else if (docEl.mozRequestFullScreen) {
-            docEl.mozRequestFullScreen().catch?.(() => {});
+            await docEl.mozRequestFullScreen();
           } else if (docEl.msRequestFullscreen) {
-            docEl.msRequestFullscreen().catch?.(() => {});
+            await docEl.msRequestFullscreen();
           }
         }
+
+        // PWA Native Deneyimi: Klavyeden Escape ile tam ekrandan çıkılmasını engelle (Chrome/Edge PWA)
+        if ('keyboard' in navigator && (navigator as any).keyboard?.lock) {
+          (navigator as any).keyboard.lock(['Escape']).catch(() => {});
+        }
+
+        // Dikey ekran kilidi (Destekleyen mobil tarayıcılar için)
+        if (screen.orientation && (screen.orientation as any).lock) {
+          (screen.orientation as any).lock('portrait').catch(() => {});
+        }
       } catch {
-        // Tarayıcı kısıtlamaları veya desteklenmeyen cihazlar için sessizce geç
-      }
-    };
-
-    // 1. Doğrudan tam ekranı başlatmayı dene
-    requestFullscreen();
-
-    // 2. Tarayıcı güvenlik kısıtlamaları gereği ilk etkileşimde (dokunma/tıklama) otomatik tam ekrana geçir
-    const handleFullscreenChange = () => {
-      const isFullscreen = Boolean(
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
-
-      if (isFullscreen) {
-        hasEnteredOnce = true;
-      } else if (hasEnteredOnce) {
-        // Kullanıcı daha önce tam ekrana girdi ve sonrasında manuel çıktıysa (ör. ESC)
-        hasUserExited = true;
+        // Tarayıcı güvenlik/kullanıcı etkileşimi kısıtlamaları için sessizce geç
       }
     };
 
     const handleInteraction = () => {
-      if (!hasUserExited) {
+      if (!checkIsFullscreen()) {
         requestFullscreen();
       }
     };
 
+    const handleFullscreenChange = () => {
+      // Tam ekrandan çıkılmaya çalışılırsa ilk fırsatta derhal tam ekrana geri dön
+      if (!checkIsFullscreen()) {
+        requestFullscreen();
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && !checkIsFullscreen()) {
+        requestFullscreen();
+      }
+    };
+
+    // 1. Uygulama açılır açılmaz tam ekranı başlatmayı dene
+    requestFullscreen();
+
+    // 2. Yüklü uygulama açık kaldığı sürece tam ekranı koru
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
     window.addEventListener('click', handleInteraction, { passive: true });
     window.addEventListener('touchstart', handleInteraction, { passive: true });
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('touchstart', handleInteraction);
     };

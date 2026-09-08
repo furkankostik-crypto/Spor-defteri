@@ -65,6 +65,7 @@ export const ExerciseSquareCard: React.FC<ExerciseSquareCardProps> = ({ exercise
           muscle={exercise.muscle} 
           width="100%"
           height="100%"
+          objectFit="contain"
         />
 
         {/* Active Set Indicator Badge (only shown when sets entered) */}

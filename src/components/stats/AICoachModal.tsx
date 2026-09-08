@@ -29,9 +29,14 @@ export const AICoachModal: React.FC = () => {
       id: 'welcome',
       sender: 'assistant',
       content: `Merhaba! Ben senin **Bilimsel AI Antrenörünüm**.
-Kaldırdığın ağırlıkları, 1RM güç seviyelerini ve haftalık hipertrofi hacmini spor bilimi standartlarına göre analiz ettim.
+Kaldırdığın ağırlıkları, 1RM güç seviyelerini, toparlanma sürelerini ve haftalık hipertrofi hacmini spor bilimi standartlarına göre analiz ettim.
 
-Aşağıdaki hazır analiz butonlarına dokunabilir veya antrenmanlarınla ilgili her şeyi sorabilirsin!`,
+Bana her şeyi sorabilirsin, örneğin:
+- *"Sırada ne var?"*
+- *"Bench press kaç basmalıyım?"*
+- *"Göğüs kasım toparlandı mı?"*
+- *"Günde kaç gram protein almalıyım?"*
+- *"Ağırlıklar takıldı, nasıl artırırım?"*`,
       timestamp: Date.now()
     }
   ]);
@@ -92,7 +97,10 @@ Aşağıdaki hazır analiz butonlarına dokunabilir veya antrenmanlarınla ilgil
     handleSendMessage(prompt);
   };
 
-  const hasApiKey = Boolean(profile.geminiApiKey?.trim());
+  const hasApiKey = Boolean(
+    profile.geminiApiKey?.trim() || 
+    (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_GEMINI_API_KEY as string)?.trim())
+  );
 
   return (
     <div 
@@ -152,19 +160,23 @@ Aşağıdaki hazır analiz butonlarına dokunabilir veya antrenmanlarınla ilgil
                 <h3 style={{ fontSize: 16, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
                   Bilimsel AI Koç
                 </h3>
-                <span 
+                <button
+                  type="button"
+                  onClick={() => setIsProfileModalOpen(true)}
+                  title={hasApiKey ? 'Gemini AI Aktif' : 'Gemini API Key eklemek için tıklayın (Ücretsiz)'}
                   style={{
                     fontSize: 9.5,
                     fontWeight: 800,
-                    padding: '2px 6px',
+                    padding: '2px 7px',
                     borderRadius: 'var(--radius-full)',
                     background: hasApiKey ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)',
                     color: hasApiKey ? 'var(--muscle-emerald)' : 'var(--cyan)',
-                    border: `1px solid ${hasApiKey ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.4)'}`
+                    border: `1px solid ${hasApiKey ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.4)'}`,
+                    cursor: 'pointer'
                   }}
                 >
-                  {hasApiKey ? 'Gemini 1.5 Pro/Flash' : 'Dahili Uzman Motor'}
-                </span>
+                  {hasApiKey ? 'Gemini 1.5 Flash 🌐' : 'Dahili Uzman Motor ⚡'}
+                </button>
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 Kişiselleştirilmiş hipertrofi & güç rehberi
@@ -176,7 +188,7 @@ Aşağıdaki hazır analiz butonlarına dokunabilir veya antrenmanlarınla ilgil
             <button
               type="button"
               onClick={() => setIsProfileModalOpen(true)}
-              title="Profil & API Key"
+              title="Profil & Gemini API Anahtarı"
               className="btn-icon"
               style={{ width: 32, height: 32, borderRadius: '50%', color: 'var(--text-muted)' }}
             >
@@ -209,10 +221,10 @@ Aşağıdaki hazır analiz butonlarına dokunabilir veya antrenmanlarınla ilgil
           }}
         >
           {[
+            { label: '🏋️ Sırada Ne Var?', prompt: 'Sırada ne var?', icon: Dumbbell },
             { label: '📊 Gelişimimi Analiz Et', prompt: 'Gelişimimi ve Antrenman Geçmişimi Analiz Et', icon: TrendingUp },
             { label: '⚡ Plato Kırma Planı', prompt: 'Takıldığım Egzersizler İçin Plato Kırma Planı Hazırla', icon: Zap },
-            { label: '🏋️ Sıradaki Antrenman', prompt: 'Sıradaki Antrenmanımı Bilimsel Olarak Planla', icon: Dumbbell },
-            { label: '🥗 Beslenme & Toparlanma', prompt: 'Beslenme ve Toparlanma Önerisi Ver', icon: Coffee }
+            { label: '🥗 Beslenme & Toparlanma', prompt: 'Kilo ve hedefime uygun beslenme önerisi ver', icon: Coffee }
           ].map((item, idx) => {
             const Icon = item.icon;
             return (
