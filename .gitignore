@@ -30,5 +30,6 @@ pnpm-debug.log*
 Thumbs.db
 .vercel/
 
-.vercel
-.env*
+# Test output
+test-results/
+playwright-report/

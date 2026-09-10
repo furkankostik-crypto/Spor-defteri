@@ -17,10 +17,12 @@ import {
 
 interface WorkoutCartDrawerProps {
   onSaveSuccess?: () => void;
+  isManual?: boolean;
 }
 
 export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({ 
-  onSaveSuccess
+  onSaveSuccess,
+  isManual
 }) => {
   const { 
     draft, 
@@ -30,6 +32,8 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
     removeDraftSet, 
     clearDraftExercise
   } = useWorkout();
+
+  const isManualMode = isManual ?? Boolean(draft.isManual);
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -176,10 +180,10 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: '#ffffff' }}>
                   {totalSetsCount > 0 
-                    ? `Antrenman Sepeti (${totalSetsCount}/${sessionTarget.targetSetsCount} Set)` 
+                    ? (isManualMode ? `Antrenman Sepeti (${totalSetsCount} Set)` : `Antrenman Sepeti (${totalSetsCount}/${sessionTarget.targetSetsCount} Set)`) 
                     : 'Antrenman Sepeti'}
                 </span>
-                {sessionTarget.overallProgressPercent > 0 && (
+                {!isManualMode && sessionTarget.overallProgressPercent > 0 && (
                   <span
                     style={{
                       fontSize: 10,
@@ -216,12 +220,14 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
                     </span>
                     <span>•</span>
                     <span style={{ color: 'var(--text-dim)' }}>
-                      {sessionTarget.isTargetMet ? 'Hedef Bitti 🏆' : `${sessionTarget.remainingSetsCount} Set Kaldı`}
+                      {isManualMode 
+                        ? `${distinctExercisesCount} Egzersiz` 
+                        : (sessionTarget.isTargetMet ? 'Hedef Bitti 🏆' : `${sessionTarget.remainingSetsCount} Set Kaldı`)}
                     </span>
                   </>
                 ) : (
                   <span style={{ color: 'var(--text-dim)' }}>
-                    Hedef: {sessionTarget.targetExercisesCount} Hareket • {sessionTarget.targetSetsCount} Set
+                    {isManualMode ? 'Henüz hareket eklenmedi' : `Hedef: ${sessionTarget.targetExercisesCount} Hareket • ${sessionTarget.targetSetsCount} Set`}
                   </span>
                 )}
               </div>
@@ -347,9 +353,15 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
                     Antrenman Sepeti & Kayıt
                   </h3>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {totalSetsCount > 0 
-                      ? `${distinctExercisesCount}/${sessionTarget.targetExercisesCount} Hareket • ${totalSetsCount}/${sessionTarget.targetSetsCount} Set (%${sessionTarget.overallProgressPercent})` 
-                      : `Seans Hedefi: ${sessionTarget.targetExercisesCount} Hareket • ${sessionTarget.targetSetsCount} Set`}
+                    {isManualMode ? (
+                      totalSetsCount > 0 
+                        ? `${distinctExercisesCount} Hareket • ${totalSetsCount} Set • ${totalVolumeSum.toLocaleString()} kg Hacim` 
+                        : 'Serbest antrenman için hareket seçip setlerinizi girin'
+                    ) : (
+                      totalSetsCount > 0 
+                        ? `${distinctExercisesCount}/${sessionTarget.targetExercisesCount} Hareket • ${totalSetsCount}/${sessionTarget.targetSetsCount} Set (%${sessionTarget.overallProgressPercent})` 
+                        : `Seans Hedefi: ${sessionTarget.targetExercisesCount} Hareket • ${sessionTarget.targetSetsCount} Set`
+                    )}
                   </p>
                 </div>
               </div>

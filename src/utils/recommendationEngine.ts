@@ -12,6 +12,7 @@ import { getLastWorkoutSets } from './calculations';
 import { detectExercisePlateau } from './scientificCalculations';
 import { muscleMetadata } from '../data/muscleMetadata';
 import { getTodayLocalDate, shiftDateByDays, parseLocalDate } from './dateUtils';
+import { getRecommendedRoutine } from './recommendedRoutines';
 
 /**
  * Generates an intelligent, progressive overload recommendation for a specific exercise
@@ -311,6 +312,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
         '💤 Kaliteli Uyku: Büyüme hormonu (GH) salınımı ve merkezi sinir sistemi için 7-8 saat derin uyku hedefleyin.'
       ],
       suggestedFocusMuscles: nextMuscles,
+      recommendedRoutine: getRecommendedRoutine(nextSplit),
       badge: {
         text: 'Bugün Tamamlandı ✓',
         color: '#10b981',
@@ -326,6 +328,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
       reason: `Bugün ${todaySummary.splitName} yapıldı (${todayVolume.toLocaleString('tr-TR')} kg hacim). Kasların toparlanıyor. Bir sonraki önerilen seans: ${nextTarget} (Yarın).`,
       priorityMuscles,
       recommendedMuscles: nextMuscles,
+      recommendedRoutine: getRecommendedRoutine(nextSplit),
       muscleRecoveryMap,
       isTodayCompleted: true,
       todayWorkoutSummary: todaySummary,
@@ -354,6 +357,8 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
     daysSinceLast = Math.max(0, Math.floor((nowD.getTime() - lastD.getTime()) / (1000 * 60 * 60 * 24)));
   }
 
+  const activeRoutine = getRecommendedRoutine(recommendedSplit);
+
   // Subcase A: Overtraining / Streak of 3+ consecutive days
   if (consecutiveDays >= 3) {
     const ptGuidance: PTDailyGuidance = {
@@ -370,6 +375,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
         '🔋 Enerji Depolama: Glikojen depolarını kaliteli karbonhidratlarla doldur.'
       ],
       suggestedFocusMuscles: recommendedMuscles,
+      recommendedRoutine: activeRoutine,
       badge: {
         text: 'Dinlenme Günü Önerisi',
         color: '#a855f7',
@@ -385,6 +391,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
       reason,
       priorityMuscles,
       recommendedMuscles,
+      recommendedRoutine: activeRoutine,
       muscleRecoveryMap,
       isTodayCompleted: false,
       ptGuidance
@@ -407,6 +414,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
         '💧 Hidrasyon: Antrenmandan önce en az 500ml su içmeyi ihmal etme.'
       ],
       suggestedFocusMuscles: recommendedMuscles,
+      recommendedRoutine: activeRoutine,
       badge: {
         text: 'Geri Dönüş Seansı',
         color: '#f59e0b',
@@ -426,6 +434,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
       reason,
       priorityMuscles,
       recommendedMuscles,
+      recommendedRoutine: activeRoutine,
       muscleRecoveryMap,
       isTodayCompleted: false,
       ptGuidance
@@ -447,6 +456,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
       '⏱️ Set Araları: Ağır bileşke hareketlerde en az 2-3 dakika dinlen.'
     ],
     suggestedFocusMuscles: recommendedMuscles,
+    recommendedRoutine: activeRoutine,
     badge: {
       text: 'Günün Antrenmanı',
       color: '#38bdf8',
@@ -466,6 +476,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
     reason,
     priorityMuscles,
     recommendedMuscles,
+    recommendedRoutine: activeRoutine,
     muscleRecoveryMap,
     isTodayCompleted: false,
     ptGuidance

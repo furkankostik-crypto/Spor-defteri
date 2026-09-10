@@ -30,6 +30,7 @@ export interface WorkoutDraft {
   splitType: SplitType;
   // Map exerciseId -> array of sets
   exerciseSets: Record<string, ExerciseSet[]>;
+  isManual?: boolean;
 }
 
 export interface SyncCloudOptions {
@@ -47,6 +48,7 @@ interface WorkoutContextType {
   draft: WorkoutDraft;
   updateDraftDate: (date: string) => void;
   updateDraftSplit: (split: SplitType) => void;
+  updateDraftIsManual: (isManual: boolean) => void;
   updateDraftSet: (exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => void;
   addDraftSet: (exerciseId: string) => void;
   removeDraftSet: (exerciseId: string, setIndex: number) => void;
@@ -235,6 +237,10 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateDraftSplit = (splitType: SplitType) => {
     setDraft(prev => ({ ...prev, splitType }));
+  };
+
+  const updateDraftIsManual = (isManual: boolean) => {
+    setDraft(prev => ({ ...prev, isManual }));
   };
 
   const updateDraftSet = (exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => {
@@ -490,7 +496,8 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Reset draft sets
     setDraft(prev => ({
       ...prev,
-      exerciseSets: {}
+      exerciseSets: {},
+      isManual: false
     }));
 
     if (isOverallPR) {
@@ -706,6 +713,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         draft,
         updateDraftDate,
         updateDraftSplit,
+        updateDraftIsManual,
         updateDraftSet,
         addDraftSet,
         removeDraftSet,

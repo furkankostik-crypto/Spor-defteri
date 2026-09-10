@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useWorkout } from './context/WorkoutContext';
 import { Navbar } from './components/layout/Navbar';
 import { WorkoutView } from './components/workout/WorkoutView';
+import { HistoryView } from './components/history/HistoryView';
 import { ProgressView } from './components/stats/ProgressView';
 import { ToastContainer } from './components/common/Toast';
 import { Confetti } from './components/common/Confetti';
@@ -38,8 +39,9 @@ export const App: React.FC = () => {
   return (
     <>
       <main style={{ flex: 1 }}>
-        {(activeTab === 'workout' || activeTab === 'history') && <WorkoutView />}
-        {(activeTab === 'stats' || activeTab === 'levels') && <ProgressView />}
+        {(activeTab === 'workout' || isLoggingWorkout) && <WorkoutView />}
+        {activeTab === 'history' && !isLoggingWorkout && <HistoryView />}
+        {(activeTab === 'stats' || activeTab === 'levels') && !isLoggingWorkout && <ProgressView />}
       </main>
 
       {!isLoggingWorkout && <Navbar />}

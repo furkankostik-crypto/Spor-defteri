@@ -22,19 +22,22 @@ interface MuscleDetailViewProps {
   muscle: MuscleGroup;
   onBack: () => void;
   onSelectOtherMuscle: (muscle: MuscleGroup) => void;
+  isManual?: boolean;
 }
 
 export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
   muscle,
   onBack,
-  onSelectOtherMuscle
+  onSelectOtherMuscle,
+  isManual
 }) => {
   const { allExercises, draft, workouts } = useWorkout();
   const [isAddCustomOpen, setIsAddCustomOpen] = useState(false);
   const [selectedOverlayExercise, setSelectedOverlayExercise] = useState<ExerciseDefinition | null>(null);
 
+  const isManualMode = isManual ?? Boolean(draft.isManual);
   const suggestedNext = getSuggestedNextWorkout(workouts);
-  const isRecommended = suggestedNext.recommendedMuscles?.includes(muscle);
+  const isRecommended = !isManualMode && Boolean(suggestedNext.recommendedMuscles?.includes(muscle));
   const recoveryInfo = suggestedNext.muscleRecoveryMap?.[muscle];
 
   const meta = muscleMetadata[muscle] || muscleMetadata.chest;
@@ -253,7 +256,7 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
           {muscleList.map((m) => {
             const mMeta = muscleMetadata[m];
             const isCurrent = m === muscle;
-            const isOtherRec = suggestedNext.recommendedMuscles?.includes(m);
+            const isOtherRec = !isManualMode && Boolean(suggestedNext.recommendedMuscles?.includes(m));
 
             return (
               <button

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
-import { SplitType, MuscleGroup, Workout, ExerciseDefinition } from '../../types/workout';
+import { SplitType, MuscleGroup, ExerciseDefinition } from '../../types/workout';
 import { ExerciseSquareCard } from './ExerciseSquareCard';
 import { ExerciseInputOverlay } from './ExerciseInputOverlay';
 import { WorkoutCartDrawer } from './WorkoutCartDrawer';
@@ -11,11 +11,10 @@ import { SplitIcon } from './SplitIcon';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { sounds } from '../../utils/audio';
-import { HistoryCard } from '../history/HistoryCard';
-import { EditWorkoutModal } from '../history/EditWorkoutModal';
 import { getSuggestedNextWorkout } from '../../utils/recommendationEngine';
 import { PTGuidanceCard } from './PTGuidanceCard';
 import { WorkoutSessionProgressCard } from './WorkoutSessionProgressCard';
+import { RecommendedRoutineView } from './RecommendedRoutineView';
 import { calculateWorkoutSessionTarget, MuscleTargetProgress } from '../../utils/workoutTargets';
 import { 
   Calendar, 
@@ -25,23 +24,24 @@ import {
   ListFilter, 
   Sparkles, 
   ChevronRight, 
+  ChevronDown,
+  ChevronUp,
   Plus, 
   ArrowLeft, 
-  History as HistoryIcon,
   Zap,
-  Check,
   CheckCircle2,
-  Info
+  Info,
+  Dumbbell
 } from 'lucide-react';
 import { HeaderBurgerMenu } from '../layout/HeaderBurgerMenu';
-import { TimeFilterSelector, TimeFilterState } from './TimeFilterSelector';
-import { getTodayLocalDate, getWeekBounds } from '../../utils/dateUtils';
+import { getTodayLocalDate } from '../../utils/dateUtils';
 
 export const WorkoutView: React.FC = () => {
   const { 
     draft, 
     updateDraftDate, 
     updateDraftSplit, 
+    updateDraftIsManual,
     allExercises, 
     workouts, 
     overallStats,
@@ -51,31 +51,17 @@ export const WorkoutView: React.FC = () => {
   } = useWorkout();
 
   const suggestedNext = getSuggestedNextWorkout(workouts);
+  const isManual = Boolean(draft.isManual);
 
   // Navigation state within workout entry
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
   const [selectedOverlayExercise, setSelectedOverlayExercise] = useState<ExerciseDefinition | null>(null);
 
-  const [viewMode, setViewMode] = useState<'map' | 'all'>('map');
+  const [viewMode, setViewMode] = useState<'recommended' | 'map' | 'all'>('recommended');
   const [isAddCustomOpen, setIsAddCustomOpen] = useState(false);
+  const [showOtherModes, setShowOtherModes] = useState(false);
 
-  // History list time & split filter state
   const todayStr = getTodayLocalDate();
-  const todayWeek = getWeekBounds(todayStr);
-  const now = new Date();
-
-  const [timeFilter, setTimeFilter] = useState<TimeFilterState>({
-    mode: 'all',
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    selectedDate: todayStr,
-    weekStart: todayWeek.start,
-    weekEnd: todayWeek.end
-  });
-
-  const [splitFilter, setSplitFilter] = useState<string>('all');
-  const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
-  const [visibleLimit, setVisibleLimit] = useState(30);
 
   const splits: { id: SplitType; label: string }[] = [
     { id: 'upper', label: 'Üst Vücut' },
@@ -92,20 +78,20 @@ export const WorkoutView: React.FC = () => {
     return true;
   });
 
-  // Calculate session live estimated stats & trained muscles breakdown
+  // Active workout draft calculation (Live session counters)
+  const trainedMusclesMap: Partial<Record<MuscleGroup, number>> = {};
   let liveSessionSets = 0;
   let liveSessionVolume = 0;
-  const trainedMusclesMap: Record<MuscleGroup, number> = {} as any;
 
   Object.entries(draft.exerciseSets).forEach(([exId, sets]) => {
-    const ex = allExercises.find(e => e.id === exId);
+    const ex = allExercises.find((e) => e.id === exId);
+    if (!ex) return;
+
     sets.forEach((s) => {
       if (s.weight > 0) {
         liveSessionSets++;
         liveSessionVolume += s.weight * (s.reps || 5);
-        if (ex) {
-          trainedMusclesMap[ex.muscle] = (trainedMusclesMap[ex.muscle] || 0) + 1;
-        }
+        trainedMusclesMap[ex.muscle] = (trainedMusclesMap[ex.muscle] || 0) + 1;
       }
     });
   });
@@ -118,9 +104,9 @@ export const WorkoutView: React.FC = () => {
       draft.splitType,
       draft.exerciseSets,
       allExercises,
-      suggestedNext.recommendedMuscles || []
+      isManual ? [] : (suggestedNext.recommendedMuscles || [])
     );
-  }, [draft.splitType, draft.exerciseSets, allExercises, suggestedNext.recommendedMuscles]);
+  }, [draft.splitType, draft.exerciseSets, allExercises, isManual, suggestedNext.recommendedMuscles]);
 
   const muscleTargetMap = React.useMemo(() => {
     const map: Partial<Record<MuscleGroup, MuscleTargetProgress>> = {};
@@ -135,11 +121,25 @@ export const WorkoutView: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleStartNewWorkout = (preferredSplit?: SplitType) => {
+  const handleStartNewWorkout = (
+    preferredSplit?: SplitType, 
+    isRecommendedLaunch: boolean = false, 
+    isManualLaunch: boolean = false
+  ) => {
     sounds.playPop();
+    const isManualMode = isManualLaunch || !isRecommendedLaunch;
+    updateDraftIsManual(isManualMode);
+    const splitToSet = preferredSplit || (isManualMode ? 'custom' : (suggestedNext.isTodayCompleted ? 'custom' : suggestedNext?.recommendedSplit)) || 'upper';
     if (Object.keys(draft.exerciseSets).length === 0) {
-      const splitToSet = preferredSplit || (suggestedNext.isTodayCompleted ? 'custom' : suggestedNext?.recommendedSplit) || 'upper';
       updateDraftSplit(splitToSet);
+    } else if (preferredSplit && preferredSplit !== draft.splitType) {
+      updateDraftSplit(preferredSplit);
+    }
+    if (isRecommendedLaunch) {
+      setViewMode('recommended');
+      setShowOtherModes(false);
+    } else {
+      setViewMode('map');
     }
     setIsLoggingWorkout(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -149,26 +149,8 @@ export const WorkoutView: React.FC = () => {
     sounds.playPop();
     setIsLoggingWorkout(false);
     setSelectedMuscle(null);
+    setShowOtherModes(false);
   };
-
-  // Filter workouts for history list according to TimeFilter and SplitFilter
-  const filteredWorkouts = workouts.filter((w) => {
-    const matchesSplit = splitFilter === 'all' || w.type.toLowerCase().includes(splitFilter.toLowerCase());
-    
-    let matchesTime = true;
-    if (timeFilter.mode === 'year') {
-      matchesTime = w.date.startsWith(`${timeFilter.year}-`);
-    } else if (timeFilter.mode === 'month') {
-      const monthPad = String(timeFilter.month).padStart(2, '0');
-      matchesTime = w.date.startsWith(`${timeFilter.year}-${monthPad}`);
-    } else if (timeFilter.mode === 'week') {
-      matchesTime = w.date >= timeFilter.weekStart && w.date <= timeFilter.weekEnd;
-    } else if (timeFilter.mode === 'day') {
-      matchesTime = w.date === timeFilter.selectedDate;
-    }
-
-    return matchesSplit && matchesTime;
-  });
 
   // ==========================================
   // VIEW 1: ACTIVE WORKOUT LOGGING SESSION
@@ -248,6 +230,25 @@ export const WorkoutView: React.FC = () => {
                     }}
                   >
                     {liveSessionSets} Set
+                  </span>
+                ) : isManual ? (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: 'var(--cyan)',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-full)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Dumbbell size={11} />
+                    <span>Serbest Seans</span>
                   </span>
                 ) : suggestedNext.isTodayCompleted && draft.date === todayStr ? (
                   <span
@@ -412,78 +413,240 @@ export const WorkoutView: React.FC = () => {
           )}
         </div>
 
-        {/* Live Session Progress & Target Metrics Dashboard */}
-        <WorkoutSessionProgressCard sessionTarget={sessionTarget} />
+        {/* Live Session Progress & Target Metrics Dashboard (Shown in Map & All modes only for recommended sessions) */}
+        {!isManual && viewMode !== 'recommended' && (
+          <WorkoutSessionProgressCard sessionTarget={sessionTarget} />
+        )}
 
-        {/* View Mode Switcher (Full Width Standalone) */}
-        <div
-          style={{
-            display: 'flex',
-            width: '100%',
-            background: 'rgba(15, 23, 42, 0.85)',
-            padding: '4px',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
-            marginBottom: 14,
-            gap: 4
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              sounds.playPop();
-              setViewMode('map');
-            }}
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              background: viewMode === 'map' ? 'var(--accent)' : 'transparent',
-              color: viewMode === 'map' ? '#ffffff' : 'var(--text-muted)',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: viewMode === 'map' ? '0 2px 10px rgba(239, 68, 68, 0.35)' : 'none'
-            }}
-          >
-            <Map size={15} />
-            <span>Harita</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              sounds.playPop();
-              setViewMode('all');
-              setSelectedMuscle(null);
-            }}
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              background: viewMode === 'all' ? 'var(--accent)' : 'transparent',
-              color: viewMode === 'all' ? '#ffffff' : 'var(--text-muted)',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: viewMode === 'all' ? '0 2px 10px rgba(239, 68, 68, 0.35)' : 'none'
-            }}
-          >
-            <ListFilter size={15} />
-            <span>Tüm Liste</span>
-          </button>
-        </div>
+        {/* View Mode Switcher */}
+        {(() => {
+          const isOtherModesVisible = isManual || showOtherModes || viewMode !== 'recommended';
+          return (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.85)',
+                padding: '4px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+                marginBottom: 14,
+                gap: 4,
+                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+            >
+              {!isOtherModesVisible ? (
+                /* COLLAPSED: Önerilen Program covers the selector, button on the right reveals other options */
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playPop();
+                      setViewMode('recommended');
+                    }}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 7,
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #ff4757, #ff6b81)',
+                      color: '#ffffff',
+                      fontSize: 12.5,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 2px 12px rgba(255, 71, 87, 0.45)',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Zap size={15} fill="#ffffff" />
+                    <span>Önerilen Program</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playPop();
+                      setShowOtherModes(true);
+                    }}
+                    title="Diğer Seçenekleri Göster (Harita, Tüm Liste)"
+                    aria-label="Diğer Seçenekleri Göster"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: 'var(--text-muted)',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.09)';
+                      e.currentTarget.style.color = '#ffffff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      e.currentTarget.style.color = 'var(--text-muted)';
+                    }}
+                  >
+                    <span>Diğer Seçenekler</span>
+                    <ChevronDown size={14} />
+                  </button>
+                </>
+              ) : (
+                /* EXPANDED: All options visible */
+                <>
+                  {!isManual && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sounds.playPop();
+                        setViewMode('recommended');
+                        setShowOtherModes(false);
+                      }}
+                      style={{
+                        flex: 1.15,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        padding: '10px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: 'none',
+                        background: viewMode === 'recommended' ? 'linear-gradient(135deg, #ff4757, #ff6b81)' : 'transparent',
+                        color: viewMode === 'recommended' ? '#ffffff' : 'var(--text-muted)',
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        boxShadow: viewMode === 'recommended' ? '0 2px 10px rgba(255, 71, 87, 0.4)' : 'none',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      <Zap size={14} fill={viewMode === 'recommended' ? '#ffffff' : 'currentColor'} />
+                      <span>Önerilen Program</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playPop();
+                      setViewMode('map');
+                    }}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      padding: '10px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: viewMode === 'map' ? 'var(--accent)' : 'transparent',
+                      color: viewMode === 'map' ? '#ffffff' : 'var(--text-muted)',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: viewMode === 'map' ? '0 2px 10px rgba(239, 68, 68, 0.35)' : 'none',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Map size={14} />
+                    <span>Harita</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playPop();
+                      setViewMode('all');
+                      setSelectedMuscle(null);
+                    }}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      padding: '10px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: viewMode === 'all' ? 'var(--accent)' : 'transparent',
+                      color: viewMode === 'all' ? '#ffffff' : 'var(--text-muted)',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: viewMode === 'all' ? '0 2px 10px rgba(239, 68, 68, 0.35)' : 'none',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <ListFilter size={14} />
+                    <span>Tüm Liste</span>
+                  </button>
+                  {!isManual && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sounds.playPop();
+                        setShowOtherModes(false);
+                        setViewMode('recommended');
+                      }}
+                      title="Seçenekleri gizle ve Önerilen Programa dön"
+                      aria-label="Seçenekleri Gizle"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '10px 10px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.09)';
+                        e.currentTarget.style.color = '#ffffff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                        e.currentTarget.style.color = 'var(--text-muted)';
+                      }}
+                    >
+                      <ChevronUp size={15} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* VIEW MODE 0: RECOMMENDED ROUTINE (FOCUSED ONLY ON RECOMMENDED EXERCISES) */}
+        {viewMode === 'recommended' && (
+          <RecommendedRoutineView
+            split={draft.splitType}
+            onOpenExerciseInput={(exercise) => setSelectedOverlayExercise(exercise)}
+            onOpenAddCustom={() => setIsAddCustomOpen(true)}
+            onSwitchToAllMode={() => setViewMode('all')}
+          />
+        )}
 
         {/* VIEW MODE 1: BODY MAP NAVIGATION */}
         {viewMode === 'map' && (
@@ -495,6 +658,7 @@ export const WorkoutView: React.FC = () => {
                   onSelectMuscle={handleSelectMuscle}
                   selectedMuscle={selectedMuscle}
                   suggestion={suggestedNext}
+                  isManual={isManual}
                 />
 
                 {/* Active / Quick Muscle Summary Cards */}
@@ -543,8 +707,8 @@ export const WorkoutView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Recommended Muscles Summary Cards (Shows today's recommended split regions) */}
-                {suggestedNext.recommendedMuscles && suggestedNext.recommendedMuscles.length > 0 && (
+                {/* Recommended Muscles Summary Cards (Shows today's recommended split regions only when not in manual mode) */}
+                {!isManual && suggestedNext.recommendedMuscles && suggestedNext.recommendedMuscles.length > 0 && (
                   <div style={{ marginTop: trainedMusclesList.length > 0 ? 6 : 14, marginBottom: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <div style={{ fontSize: 12, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -693,6 +857,7 @@ export const WorkoutView: React.FC = () => {
                 muscle={selectedMuscle}
                 onBack={() => setSelectedMuscle(null)}
                 onSelectOtherMuscle={(m) => setSelectedMuscle(m)}
+                isManual={isManual}
               />
             )}
           </>
@@ -707,7 +872,7 @@ export const WorkoutView: React.FC = () => {
               <div className="split-selector" style={{ marginBottom: 0 }}>
                 {splits.map((s) => {
                   const isActive = draft.splitType === s.id;
-                  const isSuggested = suggestedNext.recommendedSplit === s.id;
+                  const isSuggested = !isManual && suggestedNext.recommendedSplit === s.id;
                   return (
                     <button
                       type="button"
@@ -773,6 +938,7 @@ export const WorkoutView: React.FC = () => {
             setIsLoggingWorkout(false);
             setSelectedMuscle(null);
           }}
+          isManual={isManual}
         />
 
         {/* Add Custom Exercise Modal */}
@@ -792,25 +958,26 @@ export const WorkoutView: React.FC = () => {
   }
 
   // ==========================================
-  // VIEW 2: MAIN WORKOUTS FEED & HISTORY
+  // VIEW 2: MAIN WORKOUTS & TODAY'S DASHBOARD
   // ==========================================
+
   return (
-    <div style={{ padding: '16px 16px calc(92px + var(--safe-bottom)) 16px', animation: 'fadeIn 0.2s ease-out' }}>
+    <div style={{ padding: '12px 14px calc(76px + var(--safe-bottom)) 14px', animation: 'fadeIn 0.2s ease-out' }}>
       {/* Top Banner & Quick Stats */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 14
+          marginBottom: 10
         }}
       >
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
             Antrenman Günlüğü
           </h2>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Toplam {workouts.length} kayıtlı seans • {overallStats.activeStreak} gün aktif seri
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
+            Toplam {workouts.length} seans • {overallStats.activeStreak} gün aktif seri
           </div>
         </div>
 
@@ -822,226 +989,73 @@ export const WorkoutView: React.FC = () => {
       {suggestedNext?.ptGuidance && (
         <PTGuidanceCard
           guidance={suggestedNext.ptGuidance}
-          onStartWorkout={handleStartNewWorkout}
+          suggestion={suggestedNext}
+          onStartWorkout={(split, isRec) => handleStartNewWorkout(split, isRec ?? true, false)}
+          onStartManualWorkout={(split) => {
+            handleStartNewWorkout(split || 'custom', false, true);
+            setViewMode('map');
+          }}
         />
       )}
 
-      {/* Time & Split Filters */}
-      <div style={{ marginBottom: 16 }}>
-        <TimeFilterSelector
-          filter={timeFilter}
-          onChange={setTimeFilter}
-          workouts={workouts}
-          matchingCount={filteredWorkouts.length}
-        />
 
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
-          {[
-            { id: 'all', label: 'Tüm Bölgeler' },
-            { id: 'üst', label: 'Üst Vücut' },
-            { id: 'alt', label: 'Alt Vücut' },
-            { id: 'tüm', label: 'Tüm Vücut' }
-          ].map((pill) => (
-            <button
-              key={pill.id}
-              onClick={() => {
-                sounds.playPop();
-                setSplitFilter(pill.id);
-              }}
-              style={{
-                padding: '5px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: splitFilter === pill.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                background: splitFilter === pill.id ? 'var(--accent-soft)' : 'var(--input-bg)',
-                color: splitFilter === pill.id ? 'var(--accent)' : 'var(--text-muted)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              {pill.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Workout History List */}
-      <div>
-        {filteredWorkouts.length > 0 ? (
-          <>
-            {(timeFilter.mode !== 'all' || splitFilter !== 'all' ? filteredWorkouts : filteredWorkouts.slice(0, visibleLimit)).map((w) => (
-              <HistoryCard
-                key={w.id}
-                workout={w}
-                onEdit={(target) => setEditingWorkout(target)}
-              />
-            ))}
-
-            {timeFilter.mode === 'all' && splitFilter === 'all' && visibleLimit < filteredWorkouts.length && (
-              <button
-                type="button"
-                onClick={() => setVisibleLimit(prev => prev + 30)}
-                className="btn btn-secondary"
-                style={{
-                  width: '100%',
-                  marginTop: 6,
-                  marginBottom: 16,
-                  padding: '12px',
-                  fontWeight: 700,
-                  fontSize: 13
-                }}
-              >
-                <span>Daha Fazla Göster (+30 / Kalan {filteredWorkouts.length - visibleLimit})</span>
-              </button>
-            )}
-          </>
-        ) : (
-          <div
-            className="card"
-            style={{
-              textAlign: 'center',
-              padding: '40px 20px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 12
-            }}
-          >
-            <div
-              style={{
-                width: 54,
-                height: 54,
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--text-dim)'
-              }}
-            >
-              <HistoryIcon size={26} />
-            </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#ffffff' }}>
-                Henüz Antrenman Kaydı Yok
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-                Tamamladığınız antrenmanları kaydettiğinizde tüm detaylar burada listelenecek.
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 280, marginTop: 6 }}>
-              <button
-                onClick={() => handleStartNewWorkout()}
-                className="btn btn-primary"
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                <Plus size={16} />
-                <span>İlk Antrenmanını Kaydet</span>
-                <span
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    padding: '2px 7px',
-                    borderRadius: 'var(--radius-full)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 3
-                  }}
-                >
-                  <Zap size={10} fill="currentColor" />
-                  1 Öneri
-                </span>
-              </button>
-              <button
-                onClick={populateSampleData}
-                className="btn btn-secondary"
-                style={{ width: '100%', border: '1px solid rgba(251, 191, 36, 0.3)', color: 'var(--gold)' }}
-              >
-                <Sparkles size={16} color="var(--gold)" />
-                <span>2 Yıllık Örnek Veri Yükle</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Floating Action Button (+ FAB) for convenient access when scrolling */}
-      <button
-        type="button"
-        onClick={() => handleStartNewWorkout()}
-        className="fab-btn"
-        title={
-          suggestedNext.isTodayCompleted
-            ? 'Bugünkü Antrenman Tamamlandı (Yeni / Ek Seans Girişi)'
-            : `Yeni Antrenman Girişi (Öneri: ${suggestedNext.splitTitle})`
-        }
-        aria-label={
-          suggestedNext.isTodayCompleted
-            ? 'Bugünkü Antrenman Tamamlandı - Yeni Seans Girişi'
-            : `Yeni Antrenman Girişi - 1 Öneri: ${suggestedNext.splitTitle}`
-        }
-      >
-        <Plus size={22} strokeWidth={2.5} />
-        
-        {/* Smart Recommendation Notification Badge: ONLY when NOT completed today and workout is ready */}
-        {!suggestedNext.isTodayCompleted && suggestedNext.ptGuidance?.state === 'workout_ready' && (
-          <div className="fab-badge-container">
-            <span className="fab-badge-ping" />
-            <span className="fab-notification-badge">
-              <Zap size={8.5} fill="currentColor" />
-              <span>1</span>
-            </span>
-          </div>
-        )}
-
-        {/* Completed State Badge */}
-        {suggestedNext.isTodayCompleted && (
+      {/* Empty State (Shown only if no workouts exist) */}
+      {workouts.length === 0 && (
+        <div
+          className="card"
+          style={{
+            textAlign: 'center',
+            padding: '32px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 12
+          }}
+        >
           <div
             style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              background: '#10b981',
-              color: '#ffffff',
+              width: 50,
+              height: 50,
               borderRadius: '50%',
-              width: 18,
-              height: 18,
+              background: 'rgba(255, 255, 255, 0.05)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '2px solid #0f172a',
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)'
+              color: 'var(--text-dim)'
             }}
-            title="Bugün Tamamlandı ✓"
           >
-            <Check size={11} strokeWidth={3.5} />
+            <Dumbbell size={24} />
           </div>
-        )}
-
-        {/* Floating Tooltip on Hover */}
-        <div className="fab-tooltip">
-          {suggestedNext.isTodayCompleted ? (
-            <>
-              <CheckCircle2 size={11} color="#10b981" />
-              <span>Bugün Tamamlandı (Toparlanma Modu)</span>
-            </>
-          ) : (
-            <>
-              <Zap size={11} color="var(--cyan)" fill="currentColor" />
-              <span>Öneri: {suggestedNext.splitTitle}</span>
-            </>
-          )}
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#ffffff' }}>
+              Henüz Kayıtlı Antrenman Yok
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              İlk antrenmanınızı başlatın veya test için örnek veri yükleyin.
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 260 }}>
+            <button
+              onClick={() => handleStartNewWorkout('upper', false, true)}
+              className="btn btn-primary"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <Plus size={16} />
+              <span>İlk Antrenmanını Kaydet</span>
+            </button>
+            <button
+              onClick={populateSampleData}
+              className="btn btn-secondary"
+              style={{ width: '100%', border: '1px solid rgba(251, 191, 36, 0.3)', color: 'var(--gold)' }}
+            >
+              <Sparkles size={16} color="var(--gold)" />
+              <span>2 Yıllık Örnek Veri Yükle</span>
+            </button>
+          </div>
         </div>
-      </button>
+      )}
 
-      {/* Edit Workout Modal */}
-      <EditWorkoutModal
-        workout={editingWorkout}
-        isOpen={Boolean(editingWorkout)}
-        onClose={() => setEditingWorkout(null)}
-      />
     </div>
   );
 };
+

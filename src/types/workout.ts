@@ -188,6 +188,21 @@ export interface MuscleVolumeStatus {
   feedback: string;
 }
 
+export interface RecommendedRoutineItem {
+  id: string; // exerciseId
+  order: number;
+  name: string;
+  muscle: MuscleGroup;
+  muscleLabel: string;
+  targetSets: number;
+  targetReps: string;
+  targetProtocol: string;
+  typeLabel: string;
+  category: 'upper' | 'lower' | 'core';
+  ptTip?: string;
+  alternatives?: string[]; // IDs of alternative exercises
+}
+
 export type PTGuidanceState = 'today_completed' | 'workout_ready' | 'rest_day' | 'comeback';
 
 export interface PTDailyGuidance {
@@ -207,6 +222,7 @@ export interface PTDailyGuidance {
   };
   recoveryTips: string[];
   suggestedFocusMuscles: MuscleGroup[];
+  recommendedRoutine?: RecommendedRoutineItem[];
   badge: {
     text: string;
     color: string;
@@ -231,6 +247,7 @@ export interface NextWorkoutSuggestion {
     recoveryStatus: 'fresh' | 'recovered' | 'recovering';
   }[];
   recommendedMuscles?: MuscleGroup[];
+  recommendedRoutine?: RecommendedRoutineItem[];
   muscleRecoveryMap?: Partial<Record<MuscleGroup, {
     daysSinceTrained: number;
     recoveryStatus: 'fresh' | 'recovered' | 'recovering';

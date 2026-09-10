@@ -6,27 +6,31 @@ import { useWorkout } from '../../context/WorkoutContext';
 import { getSuggestedNextWorkout } from '../../utils/recommendationEngine';
 import { calculateWorkoutSessionTarget, MuscleTargetProgress } from '../../utils/workoutTargets';
 import { sounds } from '../../utils/audio';
-import { RotateCw, Zap, Check } from 'lucide-react';
+import { RotateCw, Zap, Check, Dumbbell } from 'lucide-react';
 import { FRONT_PATHS, BACK_PATHS } from '../../data/bodyMapPaths';
 
 interface AnatomicalBodyMapProps {
   onSelectMuscle: (muscle: MuscleGroup) => void;
   selectedMuscle?: MuscleGroup | null;
   suggestion?: NextWorkoutSuggestion;
+  isManual?: boolean;
 }
 
 export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   onSelectMuscle,
   selectedMuscle,
-  suggestion
+  suggestion,
+  isManual
 }) => {
   const { draft, allExercises, workouts } = useWorkout();
   const [view, setView] = useState<'front' | 'back'>('front');
   const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null);
 
+  const isManualMode = isManual ?? Boolean(draft.isManual);
+
   // Active suggestions & recovery status
   const currentSuggestion = suggestion || getSuggestedNextWorkout(workouts);
-  const recommendedMuscles = currentSuggestion?.recommendedMuscles || [];
+  const recommendedMuscles: MuscleGroup[] = isManualMode ? [] : (currentSuggestion?.recommendedMuscles || []);
   const isMuscleRecommended = (muscle: MuscleGroup) => recommendedMuscles.includes(muscle);
 
   // Calculate recommendation count on Front vs Back
@@ -473,6 +477,63 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               {muscleStats[hoveredMuscle].exerciseCount} Hareket • Tıkla & Gör →
             </div>
           </>
+        ) : isManualMode ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--cyan)',
+                  flexShrink: 0
+                }}
+              >
+                <Dumbbell size={13} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 12, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span>Serbest Antrenman</span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    color: 'var(--text-dim)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {sessionTarget.completedSetsCount > 0
+                    ? `${sessionTarget.completedExercisesCount} Hareket • ${sessionTarget.completedSetsCount} Set Girildi`
+                    : 'Çalışmak istediğin kas bölgesine dokun'}
+                </div>
+              </div>
+            </div>
+            {sessionTarget.completedSetsCount > 0 && (
+              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    color: '#34d399',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full)',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {sessionTarget.completedSetsCount} Set
+                </span>
+              </div>
+            )}
+          </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
