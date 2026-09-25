@@ -61,10 +61,21 @@ export function mergeSavedExerciseLists(
 
     if (exerciseMap.has(key)) {
       const existingEx = exerciseMap.get(key)!;
-      const combinedSets: ExerciseSet[] = [
-        ...(existingEx.detailedSets || []),
-        ...incomingSets
-      ].map((s, idx) => ({
+      const existingSets = existingEx.detailedSets || [];
+
+      // Check if incomingSets is identical to existingSets or contains existingSets as prefix
+      const isPrefixOrIdentical =
+        incomingSets.length >= existingSets.length &&
+        existingSets.every(
+          (s, i) =>
+            s.weight === incomingSets[i].weight &&
+            (s.reps || 5) === (incomingSets[i].reps || 5)
+        );
+
+      // If incoming sets already include the existing sets (e.g. resumed session), use incomingSets directly
+      const combinedSets: ExerciseSet[] = (
+        isPrefixOrIdentical ? incomingSets : [...existingSets, ...incomingSets]
+      ).map((s, idx) => ({
         ...s,
         id: String(idx + 1)
       }));

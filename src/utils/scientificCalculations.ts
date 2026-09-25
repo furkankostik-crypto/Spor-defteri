@@ -13,6 +13,7 @@ import {
   getExerciseStandards 
 } from '../data/strengthStandards';
 import { muscleMetadata } from '../data/muscleMetadata';
+import { getTodayLocalDate, shiftDateByDays } from './dateUtils';
 
 /**
  * Calculates Estimated 1RM (One Rep Max) using Epley Formula
@@ -243,9 +244,7 @@ export function calculateWeeklyVolumeLandmarks(
   workouts: Workout[],
   allExercises: ExerciseDefinition[]
 ): MuscleVolumeStatus[] {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+  const sevenDaysAgoStr = shiftDateByDays(getTodayLocalDate(), -7);
 
   // Map of sets per muscle group in last 7 days
   const weeklySets: Partial<Record<MuscleGroup, number>> = {};

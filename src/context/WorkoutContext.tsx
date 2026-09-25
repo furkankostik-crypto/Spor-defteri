@@ -6,7 +6,8 @@ import {
   TabType, 
   ExerciseSet,
   OverallPlayerStats,
-  AthleteProfile
+  AthleteProfile,
+  ActiveWorkoutSession
 } from '../types/workout';
 import { defaultExercises } from '../data/defaultExercises';
 import { getTodayLocalDate } from '../utils/dateUtils';
@@ -14,7 +15,7 @@ import { calculateOverallPlayerStats, calculateExerciseLevelInfo } from '../util
 import { sounds } from '../utils/audio';
 import { generateTwoYearWorkouts } from '../data/mockWorkouts';
 import { useAuth } from './AuthContext';
-import { saveCloudWorkouts, performFullSync } from '../services/workoutSync';
+import { saveCloudWorkouts, performFullSync, saveCloudActiveSession, fetchCloudActiveSession } from '../services/workoutSync';
 import { mergeWorkoutsByDate, mergeSavedExerciseLists, determineSplitType } from '../utils/workoutMerge';
 import { getExerciseOverloadSuggestion } from '../utils/recommendationEngine';
 
@@ -51,6 +52,13 @@ interface WorkoutContextType {
   addDraftSet: (exerciseId: string) => void;
   removeDraftSet: (exerciseId: string, setIndex: number) => void;
   clearDraftExercise: (exerciseId: string) => void;
+  toggleDraftSetCompleted: (exerciseId: string, setIndex: number) => void;
+  completeAllSetsForExercise: (exerciseId: string) => void;
+  addExerciseToDraft: (exerciseId: string, defaultWeight?: number, defaultReps?: number) => void;
+  startWorkoutWithRoutine: (
+    split: SplitType,
+    exercises?: { exerciseId: string; sets?: { weight: number; reps: number; completed?: boolean }[] }[]
+  ) => void;
   saveWorkout: () => { success: boolean; isPR: boolean; newPRs: string[] };
   updateWorkout: (workout: Workout) => void;
   deleteWorkout: (id: string) => void;
@@ -66,6 +74,11 @@ interface WorkoutContextType {
   setSoundEnabled: (enabled: boolean) => void;
   isLoggingWorkout: boolean;
   setIsLoggingWorkout: (isLogging: boolean) => void;
+  activeSessionStartTime: number | null;
+  isWorkoutMinimized: boolean;
+  setIsWorkoutMinimized: (minimized: boolean) => void;
+  resumeActiveWorkout: () => void;
+  discardActiveWorkout: () => void;
   importAllData: (workouts: Workout[], custom: ExerciseDefinition[]) => void;
   resetAllData: () => void;
   populateSampleData: () => void;
@@ -86,6 +99,24 @@ const STORAGE_LEGACY_KEY = 'myWorkouts';
 const STORAGE_CUSTOM_EXERCISES_KEY = 'myCustomExercises';
 const STORAGE_SOUND_KEY = 'spor_sound_enabled';
 const STORAGE_PROFILE_KEY = 'spor_athlete_profile';
+const STORAGE_ACTIVE_SESSION_KEY = 'spor_active_session';
+
+const loadInitialActiveSession = (): ActiveWorkoutSession | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_ACTIVE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      const hasSets = parsed.exerciseSets && Object.keys(parsed.exerciseSets).length > 0;
+      if (hasSets || parsed.startTime) {
+        return parsed as ActiveWorkoutSession;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
 
 const DEFAULT_PROFILE: AthleteProfile = {
   bodyWeightKg: 75,
@@ -95,9 +126,14 @@ const DEFAULT_PROFILE: AthleteProfile = {
 };
 
 export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const initialSessionRef = useRef<ActiveWorkoutSession | null>(loadInitialActiveSession());
+  const initialSession = initialSessionRef.current;
+
   const { user, isConfigured, updateSyncState, syncSettings } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('workout');
-  const [isLoggingWorkout, setIsLoggingWorkout] = useState<boolean>(false);
+  const [isLoggingWorkout, setIsLoggingWorkout] = useState<boolean>(Boolean(initialSession));
+  const [isWorkoutMinimized, setIsWorkoutMinimized] = useState<boolean>(false);
+  const [activeSessionStartTime, setActiveSessionStartTime] = useState<number | null>(initialSession?.startTime ?? null);
   
   const [profile, setProfile] = useState<AthleteProfile>(() => {
     try {
@@ -186,14 +222,103 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(STORAGE_CUSTOM_EXERCISES_KEY, JSON.stringify(customExercises));
   }, [customExercises]);
 
-  // Active workout draft
+  // Active workout draft (restored seamlessly from persistent session if app was closed)
   const [draft, setDraft] = useState<WorkoutDraft>(() => {
+    if (initialSession) {
+      return {
+        date: initialSession.date || getTodayLocalDate(),
+        splitType: initialSession.splitType || 'upper',
+        exerciseSets: initialSession.exerciseSets || {}
+      };
+    }
     return {
       date: getTodayLocalDate(),
       splitType: 'upper',
       exerciseSets: {}
     };
   });
+
+  // 1. Instantly persist active workout session to localStorage on any state change (0ms latency)
+  useEffect(() => {
+    if (isLoggingWorkout) {
+      const session: ActiveWorkoutSession = {
+        startTime: activeSessionStartTime || Date.now(),
+        date: draft.date,
+        splitType: draft.splitType,
+        exerciseSets: draft.exerciseSets,
+        lastUpdated: Date.now()
+      };
+      try {
+        localStorage.setItem(STORAGE_ACTIVE_SESSION_KEY, JSON.stringify(session));
+      } catch (err) {
+        console.error('Active workout session localStorage save error:', err);
+      }
+    }
+  }, [isLoggingWorkout, draft, activeSessionStartTime]);
+
+  // 2. Debounced cloud sync of active workout session to Firestore if user is authenticated
+  const cloudActiveSessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!user?.uid || !isConfigured || syncSettings.syncMode === 'manual') return;
+
+    if (isLoggingWorkout) {
+      if (cloudActiveSessionTimeoutRef.current) {
+        clearTimeout(cloudActiveSessionTimeoutRef.current);
+      }
+      cloudActiveSessionTimeoutRef.current = setTimeout(() => {
+        const session: ActiveWorkoutSession = {
+          startTime: activeSessionStartTime || Date.now(),
+          date: draft.date,
+          splitType: draft.splitType,
+          exerciseSets: draft.exerciseSets,
+          lastUpdated: Date.now()
+        };
+        saveCloudActiveSession(user.uid, session).catch(() => {});
+      }, 1500);
+    }
+
+    return () => {
+      if (cloudActiveSessionTimeoutRef.current) {
+        clearTimeout(cloudActiveSessionTimeoutRef.current);
+      }
+    };
+  }, [isLoggingWorkout, draft, activeSessionStartTime, user?.uid, isConfigured, syncSettings.syncMode]);
+
+  // 3. Mobile / browser lifecycle listeners to flush persistence immediately before backgrounding, tab switch or unload
+  useEffect(() => {
+    const handleFlushActiveSession = () => {
+      if (isLoggingWorkout) {
+        const session: ActiveWorkoutSession = {
+          startTime: activeSessionStartTime || Date.now(),
+          date: draft.date,
+          splitType: draft.splitType,
+          exerciseSets: draft.exerciseSets,
+          lastUpdated: Date.now()
+        };
+        try {
+          localStorage.setItem(STORAGE_ACTIVE_SESSION_KEY, JSON.stringify(session));
+        } catch {}
+        if (user?.uid && isConfigured) {
+          saveCloudActiveSession(user.uid, session).catch(() => {});
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleFlushActiveSession);
+    window.addEventListener('pagehide', handleFlushActiveSession);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        handleFlushActiveSession();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleFlushActiveSession);
+      window.removeEventListener('pagehide', handleFlushActiveSession);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isLoggingWorkout, draft, activeSessionStartTime, user?.uid, isConfigured]);
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -208,6 +333,37 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
+
+  // 4. Cloud active session recovery for logged-in users if local storage had no active session
+  useEffect(() => {
+    if (!isLoggingWorkout && user?.uid && isConfigured) {
+      const localRaw = localStorage.getItem(STORAGE_ACTIVE_SESSION_KEY);
+      if (!localRaw) {
+        fetchCloudActiveSession(user.uid).then(cloudSession => {
+          if (cloudSession && cloudSession.exerciseSets && Object.keys(cloudSession.exerciseSets).length > 0) {
+            const lastTime = cloudSession.lastUpdated || cloudSession.startTime;
+            const hoursAgo = (Date.now() - lastTime) / (1000 * 60 * 60);
+            if (hoursAgo < 24) {
+              setDraft({
+                date: cloudSession.date || getTodayLocalDate(),
+                splitType: cloudSession.splitType || 'upper',
+                exerciseSets: cloudSession.exerciseSets || {}
+              });
+              setActiveSessionStartTime(cloudSession.startTime || Date.now());
+              setIsLoggingWorkout(true);
+              setIsWorkoutMinimized(false);
+              localStorage.setItem(STORAGE_ACTIVE_SESSION_KEY, JSON.stringify(cloudSession));
+              showToast({
+                title: '☁️ Antrenman Kurtarıldı',
+                description: 'Buluttaki aktif seansınız başarıyla geri yüklendi.',
+                type: 'info'
+              });
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [user?.uid, isConfigured, isLoggingWorkout, showToast]);
 
   // Confetti trigger
   const [confettiTrigger, setConfettiTrigger] = useState<number>(0);
@@ -237,6 +393,147 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setDraft(prev => ({ ...prev, splitType }));
   };
 
+  const startWorkoutWithRoutine = (
+    split: SplitType,
+    exercises?: { exerciseId: string; sets?: { weight: number; reps: number; completed?: boolean }[] }[]
+  ) => {
+    sounds.playSuccess();
+    const newExerciseSets: Record<string, ExerciseSet[]> = {};
+    if (exercises && exercises.length > 0) {
+      exercises.forEach((item) => {
+        if (item.sets && item.sets.length > 0) {
+          newExerciseSets[item.exerciseId] = item.sets.map((s, idx) => ({
+            id: String(idx + 1),
+            weight: s.weight,
+            reps: s.reps || 8,
+            completed: Boolean(s.completed)
+          }));
+        } else {
+          newExerciseSets[item.exerciseId] = [
+            { id: '1', weight: 0, reps: 8, completed: false },
+            { id: '2', weight: 0, reps: 8, completed: false },
+            { id: '3', weight: 0, reps: 8, completed: false }
+          ];
+        }
+      });
+    }
+
+    const now = Date.now();
+    const newDraft: WorkoutDraft = {
+      date: getTodayLocalDate(),
+      splitType: split,
+      exerciseSets: newExerciseSets
+    };
+
+    setDraft(newDraft);
+    setActiveSessionStartTime(now);
+    setIsLoggingWorkout(true);
+    setIsWorkoutMinimized(false);
+
+    const session: ActiveWorkoutSession = {
+      startTime: now,
+      date: newDraft.date,
+      splitType: newDraft.splitType,
+      exerciseSets: newDraft.exerciseSets,
+      lastUpdated: now
+    };
+    try {
+      localStorage.setItem(STORAGE_ACTIVE_SESSION_KEY, JSON.stringify(session));
+    } catch {}
+
+    if (user?.uid && isConfigured) {
+      saveCloudActiveSession(user.uid, session).catch(() => {});
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resumeActiveWorkout = useCallback(() => {
+    sounds.playPop();
+    setActiveTab('workout');
+    setIsLoggingWorkout(true);
+    setIsWorkoutMinimized(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [setActiveTab]);
+
+  const discardActiveWorkout = useCallback(() => {
+    sounds.playPop();
+    localStorage.removeItem(STORAGE_ACTIVE_SESSION_KEY);
+    if (user?.uid && isConfigured) {
+      saveCloudActiveSession(user.uid, null).catch(() => {});
+    }
+    setIsLoggingWorkout(false);
+    setIsWorkoutMinimized(false);
+    setActiveSessionStartTime(null);
+    setDraft({
+      date: getTodayLocalDate(),
+      splitType: 'upper',
+      exerciseSets: {}
+    });
+    showToast({
+      title: 'Antrenman İptal Edildi',
+      description: 'Aktif antrenman kaydı silindi.',
+      type: 'info'
+    });
+  }, [user?.uid, isConfigured, showToast]);
+
+  const toggleDraftSetCompleted = (exerciseId: string, setIndex: number) => {
+    setDraft(prev => {
+      const currentSets = prev.exerciseSets[exerciseId] ? [...prev.exerciseSets[exerciseId]] : [];
+      if (!currentSets[setIndex]) return prev;
+      const nextCompleted = !currentSets[setIndex].completed;
+      if (nextCompleted) {
+        sounds.playPop();
+      }
+      const updated = currentSets.map((s, idx) => {
+        if (idx === setIndex) {
+          return { ...s, completed: nextCompleted };
+        }
+        return s;
+      });
+      return {
+        ...prev,
+        exerciseSets: {
+          ...prev.exerciseSets,
+          [exerciseId]: updated
+        }
+      };
+    });
+  };
+
+  const completeAllSetsForExercise = (exerciseId: string) => {
+    sounds.playSuccess();
+    setDraft(prev => {
+      const currentSets = prev.exerciseSets[exerciseId] ? [...prev.exerciseSets[exerciseId]] : [];
+      const updated = currentSets.map(s => ({ ...s, completed: true }));
+      return {
+        ...prev,
+        exerciseSets: {
+          ...prev.exerciseSets,
+          [exerciseId]: updated
+        }
+      };
+    });
+  };
+
+  const addExerciseToDraft = (exerciseId: string, defaultWeight: number = 0, defaultReps: number = 8) => {
+    sounds.playPop();
+    setDraft(prev => {
+      if (prev.exerciseSets[exerciseId]) return prev;
+      return {
+        ...prev,
+        exerciseSets: {
+          ...prev.exerciseSets,
+          [exerciseId]: [
+            { id: '1', weight: defaultWeight, reps: defaultReps, completed: false },
+            { id: '2', weight: defaultWeight, reps: defaultReps, completed: false },
+            { id: '3', weight: defaultWeight, reps: defaultReps, completed: false }
+          ]
+        }
+      };
+    });
+  };
+
   const updateDraftSet = (exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => {
     setDraft(prev => {
       const currentSets = prev.exerciseSets[exerciseId] ? [...prev.exerciseSets[exerciseId]] : [
@@ -249,9 +546,16 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentSets.push({ id: String(currentSets.length + 1), weight: 0, reps: 0 });
       }
 
+      const normalizedVal = isNaN(value) ? 0 : Math.max(0, value);
+      const nextWeight = field === 'weight' ? normalizedVal : currentSets[setIndex].weight;
+      const nextCompleted = field === 'weight'
+        ? normalizedVal > 0
+        : (currentSets[setIndex].completed ?? nextWeight > 0);
+
       currentSets[setIndex] = {
         ...currentSets[setIndex],
-        [field]: isNaN(value) ? 0 : Math.max(0, value)
+        [field]: normalizedVal,
+        completed: nextCompleted
       };
 
       return {
@@ -398,11 +702,23 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newPRs: string[] = [];
     let isOverallPR = false;
 
+    // Calculate session duration in minutes
+    const sessionDurationMinutes = activeSessionStartTime
+      ? Math.max(1, Math.min(360, Math.round((Date.now() - activeSessionStartTime) / (1000 * 60))))
+      : undefined;
+
+    // If any set has completed: true, prioritize completed sets with weight > 0
+    const hasAnyCompleted = Object.values(draft.exerciseSets).some(sets => 
+      sets.some(s => s.completed === true)
+    );
+
     // Check all exercises that have valid recorded sets
     allExercises.forEach(ex => {
       const sets = draft.exerciseSets[ex.id];
       if (sets && sets.length > 0) {
-        const validSets = sets.filter(s => s.weight > 0);
+        const validSets = hasAnyCompleted
+          ? sets.filter(s => s.completed === true && s.weight > 0)
+          : sets.filter(s => s.weight > 0);
         if (validSets.length > 0) {
           // Check if this workout broke a PR
           const currentInfo = calculateExerciseLevelInfo(ex, workouts);
@@ -458,6 +774,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...existingWorkout,
         type,
         splitType,
+        durationMinutes: (existingWorkout.durationMinutes || 0) + (sessionDurationMinutes || 0),
         exercises: mergedExercises,
         createdAt: Date.now()
       };
@@ -471,6 +788,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         date: draft.date,
         type: typeLabel,
         splitType: draft.splitType,
+        durationMinutes: sessionDurationMinutes,
         exercises: recordedExercises,
         createdAt: Date.now()
       };
@@ -486,6 +804,15 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .then(() => updateSyncState('synced', Date.now(), 'Buluta kaydedildi'))
         .catch(() => updateSyncState('error', undefined, 'Kaydetme hatası'));
     }
+
+    // Clear active workout session from persistent storage & cloud
+    localStorage.removeItem(STORAGE_ACTIVE_SESSION_KEY);
+    if (user?.uid && isConfigured) {
+      saveCloudActiveSession(user.uid, null).catch(() => {});
+    }
+    setIsLoggingWorkout(false);
+    setIsWorkoutMinimized(false);
+    setActiveSessionStartTime(null);
 
     // Reset draft sets
     setDraft(prev => ({
@@ -517,8 +844,12 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Update an existing workout in history
   const updateWorkout = (workout: Workout) => {
+    const workoutWithTimestamp: Workout = {
+      ...workout,
+      createdAt: Date.now()
+    };
     const remaining = workouts.filter(w => w.id !== workout.id);
-    const updated = mergeWorkoutsByDate([workout, ...remaining]);
+    const updated = mergeWorkoutsByDate([workoutWithTimestamp, ...remaining]);
     setWorkouts(updated);
     sounds.playSuccess();
     showToast({
@@ -710,6 +1041,10 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         addDraftSet,
         removeDraftSet,
         clearDraftExercise,
+        toggleDraftSetCompleted,
+        completeAllSetsForExercise,
+        addExerciseToDraft,
+        startWorkoutWithRoutine,
         saveWorkout,
         updateWorkout,
         deleteWorkout,
@@ -725,6 +1060,11 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSoundEnabled,
         isLoggingWorkout,
         setIsLoggingWorkout,
+        activeSessionStartTime,
+        isWorkoutMinimized,
+        setIsWorkoutMinimized,
+        resumeActiveWorkout,
+        discardActiveWorkout,
         importAllData,
         resetAllData,
         populateSampleData,

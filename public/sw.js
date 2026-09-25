@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spor-defterim-v5';
+const CACHE_NAME = 'spor-defterim-v6';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -41,12 +41,16 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Never intercept Firebase / Firestore / Google Auth API requests
+  // Never intercept Firebase / Firestore / Google Auth / Gemini API or Vite dev requests
   if (
     url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('identitytoolkit.googleapis.com') ||
     url.hostname.includes('securetoken.googleapis.com') ||
-    url.hostname.includes('firebase')
+    url.hostname.includes('generativelanguage.googleapis.com') ||
+    url.hostname.includes('firebase') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/node_modules/')
   ) {
     return;
   }
@@ -66,7 +70,7 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(async () => {
           const cached = await caches.match('/index.html');
-          return cached || caches.match('/');
+          return cached || (await caches.match('/')) || new Response('Çevrimdışı', { status: 503 });
         })
     );
     return;
@@ -89,7 +93,7 @@ self.addEventListener('fetch', (event) => {
             }
             return networkResponse;
           })
-          .catch(() => cachedResponse);
+          .catch(() => cachedResponse || new Response('', { status: 504 }));
 
         return cachedResponse || fetchPromise;
       })

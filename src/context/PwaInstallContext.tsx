@@ -81,14 +81,15 @@ export const PwaInstallProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     window.addEventListener('appinstalled', handleAppInstalled);
 
     // iOS Safari için gecikmeli bildirim (eğer daha önce kapatılmadıysa)
+    let iosTimer: ReturnType<typeof setTimeout> | null = null;
     if (isAppleDevice && !isCurrentlyDismissed) {
-      const timer = setTimeout(() => {
+      iosTimer = setTimeout(() => {
         setShowBanner(true);
       }, 3000);
-      return () => clearTimeout(timer);
     }
 
     return () => {
+      if (iosTimer) clearTimeout(iosTimer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };

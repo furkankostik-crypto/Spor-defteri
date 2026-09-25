@@ -246,5 +246,10 @@ export interface NextWorkoutSuggestion {
   ptGuidance?: PTDailyGuidance;
 }
 
-
-
+export interface ActiveWorkoutSession {
+  startTime: number;
+  date: string;
+  splitType: SplitType;
+  exerciseSets: Record<string, ExerciseSet[]>;
+  lastUpdated: number;
+}

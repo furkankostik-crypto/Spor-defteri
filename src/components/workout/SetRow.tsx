@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Check } from 'lucide-react';
 
 interface SetRowProps {
   exerciseId: string;
   setIndex: number;
   weight: number;
   reps: number;
+  completed?: boolean;
+  onToggleCompleted?: () => void;
   canDelete: boolean;
   onDelete: () => void;
   onChange: (field: 'weight' | 'reps', value: number) => void;
@@ -16,6 +18,8 @@ export const SetRow: React.FC<SetRowProps> = ({
   setIndex,
   weight,
   reps,
+  completed = false,
+  onToggleCompleted,
   canDelete,
   onDelete,
   onChange,
@@ -28,15 +32,15 @@ export const SetRow: React.FC<SetRowProps> = ({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '38px 1fr 1fr 38px',
-        gap: 8,
+        gridTemplateColumns: onToggleCompleted ? '32px 1fr 1fr 36px 30px' : '38px 1fr 1fr 38px',
+        gap: 7,
         alignItems: 'center',
-        background: 'rgba(15, 23, 42, 0.55)',
+        background: completed ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.55)',
         padding: '6px 8px',
         borderRadius: 'var(--radius-md)',
-        border: '1px solid rgba(255, 255, 255, 0.05)',
+        border: completed ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(255, 255, 255, 0.05)',
         marginBottom: 7,
-        transition: 'border-color 0.2s, background 0.2s'
+        transition: 'all 0.2s'
       }}
     >
       {/* Set Label */}
@@ -182,6 +186,33 @@ export const SetRow: React.FC<SetRowProps> = ({
         </span>
       </div>
 
+      {/* Complete Set Checkmark Toggle */}
+      {onToggleCompleted && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button
+            type="button"
+            onClick={onToggleCompleted}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 'var(--radius-sm)',
+              border: completed ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.18)',
+              background: completed ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255, 255, 255, 0.05)',
+              color: completed ? '#ffffff' : 'var(--text-dim)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: completed ? '0 2px 8px rgba(16, 185, 129, 0.4)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+            title={completed ? 'Seti Geri Al' : 'Seti Tamamla'}
+          >
+            <Check size={16} strokeWidth={completed ? 3 : 2} />
+          </button>
+        </div>
+      )}
+
       {/* Delete Set Action */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {canDelete ? (
@@ -198,7 +229,7 @@ export const SetRow: React.FC<SetRowProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 34,
+              width: 30,
               height: 34,
               transition: 'all 0.2s'
             }}
@@ -214,10 +245,10 @@ export const SetRow: React.FC<SetRowProps> = ({
             }}
             title="Seti Sil"
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </button>
         ) : (
-          <div style={{ width: 34, height: 34 }} />
+          <div style={{ width: 30, height: 34 }} />
         )}
       </div>
     </div>

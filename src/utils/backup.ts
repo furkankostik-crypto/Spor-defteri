@@ -1,5 +1,6 @@
 import { Workout, ExerciseDefinition } from '../types/workout';
 import { mergeWorkoutsByDate } from './workoutMerge';
+import { getTodayLocalDate } from './dateUtils';
 
 export interface BackupData {
   version: string;
@@ -24,7 +25,7 @@ export function exportToJSON(workouts: Workout[], customExercises: ExerciseDefin
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `spor-defterim-yedek-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `spor-defterim-yedek-${getTodayLocalDate()}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -77,7 +78,7 @@ export function exportToCSV(workouts: Workout[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `spor-defterim-antrenmanlar-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `spor-defterim-antrenmanlar-${getTodayLocalDate()}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -102,7 +103,7 @@ export function parseImportJSON(file: File): Promise<{ workouts: Workout[]; cust
           // Old array of workouts from legacy deneme6
           importedWorkouts = parsed.map((item, i) => ({
             id: item.id || `imported-${Date.now()}-${i}`,
-            date: item.date || new Date().toISOString().slice(0, 10),
+            date: item.date || getTodayLocalDate(),
             type: item.type || 'Antrenman',
             exercises: item.exercises || [],
             createdAt: item.createdAt || Date.now() - i * 1000

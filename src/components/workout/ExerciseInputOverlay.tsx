@@ -3,6 +3,7 @@ import { ExerciseDefinition } from '../../types/workout';
 import { ExerciseVisual, getExerciseEquipment } from './ExerciseVisual';
 import { SetRow } from './SetRow';
 import { useWorkout } from '../../context/WorkoutContext';
+import { useBackButton } from '../../context/BackNavigationContext';
 import { getLastWorkoutSets, calculateExerciseLevelInfo } from '../../utils/calculations';
 import { getExerciseOverloadSuggestion } from '../../utils/recommendationEngine';
 import { muscleMetadata } from '../../data/muscleMetadata';
@@ -39,6 +40,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
     addDraftSet, 
     removeDraftSet,
     clearDraftExercise,
+    toggleDraftSetCompleted,
+    completeAllSetsForExercise,
     profile,
     applyOverloadSuggestion
   } = useWorkout();
@@ -53,6 +56,20 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
     setIsOverloadOpen(false);
     setIsImageModalOpen(false);
   }, [exercise?.id, isOpen]);
+
+  // Handle phone back button
+  useBackButton(
+    Boolean(isOpen && exercise),
+    () => {
+      sounds.playPop();
+      if (isImageModalOpen) {
+        setIsImageModalOpen(false);
+      } else {
+        onClose();
+      }
+    },
+    90
+  );
 
   // Close overlay on ESC key
   useEffect(() => {
@@ -81,6 +98,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
   ];
 
   const activeSets = currentSets.filter(s => s.weight > 0);
+  const completedSets = currentSets.filter(s => s.completed && s.weight > 0);
+  const isExerciseFullyCompleted = currentSets.length > 0 && completedSets.length === currentSets.length;
   const activeVolume = activeSets.reduce((sum, s) => sum + (s.weight * (s.reps || 5)), 0);
 
   // Previous performance and level info
@@ -873,8 +892,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '38px 1fr 1fr 38px',
-                gap: 8,
+                gridTemplateColumns: '32px 1fr 1fr 36px 30px',
+                gap: 7,
                 fontSize: 11,
                 fontWeight: 800,
                 letterSpacing: '0.04em',
@@ -887,6 +906,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               <span>Set</span>
               <span>Ağırlık</span>
               <span>Tekrar</span>
+              <span>Bitir</span>
               <span></span>
             </div>
 
@@ -899,6 +919,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                   setIndex={idx}
                   weight={set.weight}
                   reps={set.reps}
+                  completed={Boolean(set.completed)}
+                  onToggleCompleted={() => toggleDraftSetCompleted(exercise.id, idx)}
                   accentColor={meta.color}
                   canDelete={currentSets.length > 1}
                   onDelete={() => {
@@ -979,7 +1001,15 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
 
             <button
               type="button"
-              onClick={handleCloseModal}
+              onClick={() => {
+                if (activeSets.length > 0 && !isExerciseFullyCompleted) {
+                  completeAllSetsForExercise(exercise.id);
+                  sounds.playSuccess();
+                } else {
+                  sounds.playPop();
+                }
+                onClose();
+              }}
               className="btn btn-primary"
               style={{
                 flex: 1,
@@ -989,10 +1019,10 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 fontSize: 14.5,
                 fontWeight: 800,
                 gap: 8,
-                background: activeSets.length > 0 
-                  ? 'linear-gradient(135deg, #10b981, #059669)' 
+                background: isExerciseFullyCompleted || activeSets.length > 0
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
                   : 'linear-gradient(135deg, var(--accent), #e11d48)',
-                boxShadow: activeSets.length > 0 
+                boxShadow: isExerciseFullyCompleted || activeSets.length > 0
                   ? '0 6px 20px rgba(16, 185, 129, 0.4)' 
                   : '0 6px 20px rgba(255, 71, 87, 0.4)',
                 transition: 'all 0.2s ease'
@@ -1000,8 +1030,10 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
             >
               <Check size={18} strokeWidth={2.5} />
               <span>
-                {activeSets.length > 0 
-                  ? `Kaydet & Kapat (${activeSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} kg)` 
+                {isExerciseFullyCompleted
+                  ? `✓ Tamamlandı (${completedSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} kg)`
+                  : activeSets.length > 0
+                  ? `✓ Hareketi Tamamla (${activeSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} kg)`
                   : 'Kapat'}
               </span>
             </button>

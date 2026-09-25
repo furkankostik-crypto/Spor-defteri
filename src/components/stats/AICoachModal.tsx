@@ -175,7 +175,7 @@ Bana her şeyi sorabilirsin, örneğin:
                     cursor: 'pointer'
                   }}
                 >
-                  {hasApiKey ? 'Gemini 1.5 Flash 🌐' : 'Dahili Uzman Motor ⚡'}
+                  {hasApiKey ? 'Gemini 2.5 Flash 🌐' : 'Dahili Uzman Motor ⚡'}
                 </button>
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>

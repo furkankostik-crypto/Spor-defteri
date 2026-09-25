@@ -4,6 +4,7 @@ import { App } from './App';
 import { AuthProvider } from './context/AuthContext';
 import { WorkoutProvider } from './context/WorkoutContext';
 import { PwaInstallProvider } from './context/PwaInstallContext';
+import { BackNavigationProvider } from './context/BackNavigationContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import './styles/index.css';
 
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <AuthProvider>
         <WorkoutProvider>
           <PwaInstallProvider>
-            <App />
+            <BackNavigationProvider>
+              <App />
+            </BackNavigationProvider>
           </PwaInstallProvider>
         </WorkoutProvider>
       </AuthProvider>

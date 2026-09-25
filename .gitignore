@@ -7,11 +7,7 @@ dist-ssr/
 
 # Environment variables (Gizli anahtarlar GitHub'a gitmemeli)
 .env
-.env*.local
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
 !.env.example
 
 # Logs
@@ -29,6 +25,4 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .vercel/
-
 .vercel
-.env*

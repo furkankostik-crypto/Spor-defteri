@@ -3,6 +3,7 @@ import { MuscleGroup, ExerciseDefinition } from '../../types/workout';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { useWorkout } from '../../context/WorkoutContext';
+import { useBackButton } from '../../context/BackNavigationContext';
 import { ExerciseSquareCard } from './ExerciseSquareCard';
 import { ExerciseInputOverlay } from './ExerciseInputOverlay';
 import { AddCustomExerciseModal } from './AddCustomExerciseModal';
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { getSuggestedNextWorkout } from '../../utils/recommendationEngine';
+import { getLastWorkoutSets } from '../../utils/calculations';
 
 interface MuscleDetailViewProps {
   muscle: MuscleGroup;
@@ -29,9 +31,26 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
   onBack,
   onSelectOtherMuscle
 }) => {
-  const { allExercises, draft, workouts } = useWorkout();
+  const { allExercises, draft, workouts, addExerciseToDraft, showToast } = useWorkout();
   const [isAddCustomOpen, setIsAddCustomOpen] = useState(false);
   const [selectedOverlayExercise, setSelectedOverlayExercise] = useState<ExerciseDefinition | null>(null);
+
+  useBackButton(true, onBack, 65);
+
+  const handleExerciseClick = (exercise: ExerciseDefinition) => {
+    sounds.playPop();
+    if (!draft.exerciseSets[exercise.id]) {
+      const lastPerf = getLastWorkoutSets(exercise.id, workouts);
+      const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : 0;
+      addExerciseToDraft(exercise.id, lastWeight, 8);
+      showToast({
+        title: '✓ Seansa Eklendi',
+        description: `${exercise.name} antrenmanınıza eklendi.`,
+        type: 'success'
+      });
+    }
+    setSelectedOverlayExercise(exercise);
+  };
 
   const suggestedNext = getSuggestedNextWorkout(workouts);
   const isRecommended = suggestedNext.recommendedMuscles?.includes(muscle);
@@ -311,7 +330,7 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
                 <ExerciseSquareCard 
                   key={exercise.id} 
                   exercise={exercise} 
-                  onClick={() => setSelectedOverlayExercise(exercise)}
+                  onClick={() => handleExerciseClick(exercise)}
                 />
               ))}
             </div>
@@ -351,7 +370,7 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
                 <ExerciseSquareCard 
                   key={exercise.id} 
                   exercise={exercise} 
-                  onClick={() => setSelectedOverlayExercise(exercise)}
+                  onClick={() => handleExerciseClick(exercise)}
                 />
               ))}
             </div>

@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
+import { useBackButton } from '../../context/BackNavigationContext';
+import { usePwaInstall } from '../../context/PwaInstallContext';
 import { calculateExerciseLevelInfo, calculateProportionalMuscleVolume } from '../../utils/calculations';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { MuscleGroup, ExerciseLevelInfo } from '../../types/workout';
@@ -38,38 +40,30 @@ export const ProgressView: React.FC = () => {
     setSoundEnabled,
     setIsAICoachOpen
   } = useWorkout();
+  const { isInstalled, promptInstall } = usePwaInstall();
   
   // Segment tab: 'stats' (Genel Analiz) or 'levels' (Egzersiz Seviyeleri & PR'lar)
   const [activeSegment, setActiveSegment] = useState<'stats' | 'levels'>('stats');
+
+  useBackButton(
+    activeSegment === 'levels',
+    () => {
+      sounds.playPop();
+      setActiveSegment('stats');
+    },
+    30
+  );
 
   // Level search and filters
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'upper' | 'lower' | 'core'>('all');
   const [sortBy, setSortBy] = useState<'level' | 'exp' | 'name'>('level');
 
-  // Backup & PWA install state
+  // Backup modal state
   const [isBackupOpen, setIsBackupOpen] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [canInstall, setCanInstall] = useState(false);
-
-  useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setCanInstall(true);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setCanInstall(false);
-    }
-    setDeferredPrompt(null);
+  const canInstall = !isInstalled;
+  const handleInstallClick = () => {
+    promptInstall();
   };
 
   // Precompute level info for all exercises once to eliminate redundant calculations during sort

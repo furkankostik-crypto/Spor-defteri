@@ -145,7 +145,7 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
     });
   });
 
-  const now = new Date();
+  const todayMidnight = parseLocalDate(getTodayLocalDate()).getTime();
   const muscleGroups: MuscleGroup[] = [
     'chest', 'back', 'shoulder', 'biceps', 'triceps', 'quads', 'hamstring', 'glutes', 'calves', 'abs'
   ];
@@ -155,8 +155,8 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
     const lastDate = muscleLastTrained[muscle];
     let daysSince = 7; // default long time
     if (lastDate) {
-      const diffMs = now.getTime() - new Date(lastDate).getTime();
-      daysSince = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+      const diffMs = todayMidnight - parseLocalDate(lastDate).getTime();
+      daysSince = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
     }
 
     let recoveryStatus: 'fresh' | 'recovered' | 'recovering' = 'fresh';
@@ -471,4 +471,109 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
     ptGuidance
   };
 }
+
+export interface RecommendedExerciseItem {
+  exercise: ExerciseDefinition;
+  targetSets: number;
+  targetReps: string;
+  lastWeight?: number;
+  suggestedWeight?: number;
+  targetFocus: string;
+  isOverload: boolean;
+  isCompletedToday?: boolean;
+  todaySetsCount?: number;
+  todayMaxWeight?: number;
+  todaySets?: { weight: number; reps: number }[];
+}
+
+const SPLIT_EXERCISE_PRESETS: Record<SplitType, string[]> = {
+  upper: ['bench', 'latpull', 'incline_bench', 'row', 'shoulder_fly', 'biceps', 'triceps'],
+  lower: ['squat', 'deadlift', 'leg_press', 'ham_ext', 'calf_raise'],
+  full: ['squat', 'bench', 'latpull', 'shoulder_fly', 'cable_crunch'],
+  custom: ['cable_crunch', 'hanging_leg_raise', 'plank']
+};
+
+export function getRecommendedRoutineForSplit(
+  split: SplitType,
+  allExercises: ExerciseDefinition[],
+  workouts: Workout[],
+  profile: AthleteProfile
+): RecommendedExerciseItem[] {
+  const targetIds = SPLIT_EXERCISE_PRESETS[split] || SPLIT_EXERCISE_PRESETS.upper;
+  const items: RecommendedExerciseItem[] = [];
+  const todayStr = getTodayLocalDate();
+  const todayWorkout = workouts.find((w) => w.date === todayStr);
+  const pastWorkouts = workouts.filter((w) => w.date !== todayStr);
+
+  targetIds.forEach((id) => {
+    const exercise = allExercises.find((e) => e.id === id);
+    if (!exercise) return;
+
+    const lastPerf = getLastWorkoutSets(exercise.id, pastWorkouts);
+    const validWeights = lastPerf ? lastPerf.weights.filter((w) => w > 0) : [];
+    const maxLastWeight = validWeights.length > 0 ? Math.max(...validWeights) : undefined;
+
+    const overload = getExerciseOverloadSuggestion(exercise, pastWorkouts, profile);
+    const suggestedWeight = overload.suggestedSets && overload.suggestedSets.length > 0 
+      ? overload.suggestedSets[0].weight 
+      : maxLastWeight;
+
+    // Check if this exercise has already been completed today
+    let isCompletedToday = false;
+    let todaySetsCount = 0;
+    let todayMaxWeight: number | undefined = undefined;
+    let todaySets: { weight: number; reps: number }[] | undefined = undefined;
+
+    if (todayWorkout) {
+      const savedEx = todayWorkout.exercises.find((e) => e.id === exercise.id);
+      if (savedEx) {
+        const validDetailed = savedEx.detailedSets?.filter((s) => s.weight > 0) || [];
+        const validLegacy = savedEx.sets?.filter((w) => w > 0) || [];
+        if (validDetailed.length > 0) {
+          isCompletedToday = true;
+          todaySetsCount = validDetailed.length;
+          todayMaxWeight = Math.max(...validDetailed.map((s) => s.weight));
+          todaySets = validDetailed.map((s) => ({ weight: s.weight, reps: s.reps || 8 }));
+        } else if (validLegacy.length > 0) {
+          isCompletedToday = true;
+          todaySetsCount = validLegacy.length;
+          todayMaxWeight = Math.max(...validLegacy);
+          todaySets = validLegacy.map((w) => ({ weight: w, reps: 8 }));
+        }
+      }
+    }
+
+    const isCompound = ['bench', 'squat', 'deadlift', 'latpull', 'row', 'leg_press', 'tbar_row'].includes(exercise.id);
+    const targetReps = isCompound ? '3 Set × 6-8 Tekrar' : '3 Set × 10-12 Tekrar';
+
+    let targetFocus = 'Hipertrofi';
+    if (exercise.muscle === 'chest') targetFocus = 'Göğüs • Kuvvet';
+    else if (exercise.muscle === 'back') targetFocus = 'Sırt • Çekiş';
+    else if (exercise.muscle === 'shoulder') targetFocus = 'Omuz • Hacim';
+    else if (exercise.muscle === 'biceps') targetFocus = 'Pazu • İzolasyon';
+    else if (exercise.muscle === 'triceps') targetFocus = 'Arka Kol • İtiş';
+    else if (exercise.muscle === 'quads') targetFocus = 'Ön Bacak • Güç';
+    else if (exercise.muscle === 'hamstring') targetFocus = 'Arka Bacak • Esneme';
+    else if (exercise.muscle === 'glutes') targetFocus = 'Kalça • Stabilizasyon';
+    else if (exercise.muscle === 'calves') targetFocus = 'Kalf • Dayanıklılık';
+    else if (exercise.muscle === 'abs') targetFocus = 'Core • Gövde Sıkılığı';
+
+    items.push({
+      exercise,
+      targetSets: 3,
+      targetReps,
+      lastWeight: maxLastWeight,
+      suggestedWeight,
+      targetFocus,
+      isOverload: overload.type === 'increase_weight' || overload.type === 'increase_reps',
+      isCompletedToday,
+      todaySetsCount,
+      todayMaxWeight,
+      todaySets
+    });
+  });
+
+  return items;
+}
+
 

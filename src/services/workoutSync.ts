@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
-import { Workout, SyncDiffResult } from '../types/workout';
+import { Workout, SyncDiffResult, ActiveWorkoutSession } from '../types/workout';
 import { mergeWorkoutsByDate } from '../utils/workoutMerge';
 
 export const STORAGE_SAVED_WRITES_KEY = 'spor_saved_writes_count';
@@ -64,9 +64,15 @@ export const resetSavedWritesCount = (): void => {
  */
 const getWorkoutSignature = (w: Workout): string => {
   if (!w) return '';
-  const exCount = w.exercises?.length || 0;
-  const setsCount = w.exercises?.reduce((acc, ex) => acc + (ex.sets?.length || ex.detailedSets?.length || 0), 0) || 0;
-  return `${w.id}:${w.date}:${w.createdAt || 0}:${exCount}:${setsCount}`;
+  const exSig = (w.exercises || [])
+    .map(ex => {
+      const setsSig = ex.detailedSets?.length
+        ? ex.detailedSets.map(s => `${s.weight}x${s.reps}`).join(',')
+        : (ex.sets || []).join(',');
+      return `${ex.id}[${setsSig}]`;
+    })
+    .join(';');
+  return `${w.id}:${w.date}:${w.type || ''}:${w.createdAt || 0}:${exSig}`;
 };
 
 /**
@@ -218,6 +224,58 @@ export const saveCloudWorkouts = async (userId: string, workouts: Workout[]): Pr
   } catch (error) {
     console.error('Firestore buluta kaydederken hata:', error);
     throw error;
+  }
+};
+
+/**
+ * Saves current active workout session to Firestore cloud (or clears it if null).
+ */
+export const saveCloudActiveSession = async (
+  userId: string,
+  session: ActiveWorkoutSession | null
+): Promise<boolean> => {
+  if (!isFirebaseConfigured || !db || !userId) {
+    return false;
+  }
+
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    await setDoc(
+      userDocRef,
+      {
+        activeSession: session ? sanitizeForFirestore(session) : null,
+        activeSessionUpdatedAt: Date.now()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (error) {
+    console.error('Aktif antrenman buluta yedeklenirken hata:', error);
+    return false;
+  }
+};
+
+/**
+ * Fetches user's active workout session from Firestore cloud if exists.
+ */
+export const fetchCloudActiveSession = async (userId: string): Promise<ActiveWorkoutSession | null> => {
+  if (!isFirebaseConfigured || !db || !userId) {
+    return null;
+  }
+
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const snapshot = await getDoc(userDocRef);
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data.activeSession && typeof data.activeSession === 'object') {
+        return data.activeSession as ActiveWorkoutSession;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Aktif antrenman buluttan çekilirken hata:', error);
+    return null;
   }
 };
 

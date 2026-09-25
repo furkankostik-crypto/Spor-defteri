@@ -17,6 +17,7 @@ import {
   VolumeX, 
   User as UserIcon, 
   ChevronRight,
+  ChevronDown,
   ShieldCheck,
   Smartphone,
   Scale,
@@ -24,6 +25,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { usePwaInstall } from '../../context/PwaInstallContext';
+import { useBackButton } from '../../context/BackNavigationContext';
 
 export const HeaderBurgerMenu: React.FC = () => {
   const { user, syncStatus, setIsAuthModalOpen } = useAuth();
@@ -40,8 +42,18 @@ export const HeaderBurgerMenu: React.FC = () => {
 
   const [isOpen, setIsOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isDataExpanded, setIsDataExpanded] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useBackButton(isOpen, () => setIsOpen(false), 70);
+
+  // Reset expanded sub-menus when burger menu closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsDataExpanded(false);
+    }
+  }, [isOpen]);
 
   // Close when clicking outside
   useEffect(() => {
@@ -411,62 +423,150 @@ export const HeaderBurgerMenu: React.FC = () => {
               Veri & Dışa Aktarma
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              {/* JSON Export */}
-              <button
-                type="button"
-                onClick={handleExportJSONClick}
-                className="burger-menu-item"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="burger-item-icon" style={{ background: 'rgba(255, 71, 87, 0.12)', color: 'var(--accent)' }}>
-                    <Download size={16} />
+            <div style={{ marginBottom: 12 }}>
+              <div className={`burger-accordion-card ${isDataExpanded ? 'is-expanded' : ''}`}>
+                {/* Accordion Trigger Header */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playPop();
+                    setIsDataExpanded(!isDataExpanded);
+                  }}
+                  className="burger-accordion-trigger"
+                  aria-expanded={isDataExpanded}
+                  title="Veri ve Yedekleme Seçenekleri"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div 
+                      className="burger-item-icon" 
+                      style={{ 
+                        background: isDataExpanded ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.12)', 
+                        color: 'var(--cyan)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <Database size={16} />
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>
+                        Yedekleme & Dışa Aktar
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {isDataExpanded ? 'Seçenekleri gizlemek için dokun' : 'JSON, Excel ve Geri Yükle'}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>JSON Yedek İndir</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tüm verileri tam yedek olarak kaydet</div>
-                  </div>
-                </div>
-                <span className="badge badge-lvl" style={{ fontSize: 10, padding: '2px 6px' }}>
-                  {workouts.length} Kayıt
-                </span>
-              </button>
 
-              {/* CSV Export */}
-              <button
-                type="button"
-                onClick={handleExportCSVClick}
-                className="burger-menu-item"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="burger-item-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: 'var(--muscle-emerald)' }}>
-                    <FileSpreadsheet size={16} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {!isDataExpanded && workouts.length > 0 && (
+                      <span className="badge badge-lvl" style={{ fontSize: 9.5, padding: '1px 6px', opacity: 0.9 }}>
+                        {workouts.length} Kayıt
+                      </span>
+                    )}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: isDataExpanded ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                        color: isDataExpanded ? 'var(--cyan)' : 'var(--text-dim)',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transform: isDataExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                      }}
+                    >
+                      <ChevronDown size={14} />
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>CSV / Excel Tablosu</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Excel uyumlu antrenman tablosu</div>
-                  </div>
-                </div>
-                <ChevronRight size={14} color="var(--text-dim)" />
-              </button>
+                </button>
 
-              {/* Advanced Data Management */}
-              <button
-                type="button"
-                onClick={handleOpenBackup}
-                className="burger-menu-item"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="burger-item-icon" style={{ background: 'rgba(56, 189, 248, 0.12)', color: 'var(--cyan)' }}>
-                    <Database size={16} />
+                {/* Expanded Sub-items */}
+                {isDataExpanded && (
+                  <div className="burger-accordion-content">
+                    {/* JSON Export */}
+                    <button
+                      type="button"
+                      onClick={handleExportJSONClick}
+                      className="burger-sub-item"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div 
+                          className="burger-item-icon" 
+                          style={{ 
+                            width: 28, 
+                            height: 28, 
+                            background: 'rgba(255, 71, 87, 0.14)', 
+                            color: 'var(--accent)' 
+                          }}
+                        >
+                          <Download size={14} />
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-main)' }}>JSON Yedek İndir</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Tüm verileri tam yedek olarak kaydet</div>
+                        </div>
+                      </div>
+                      <span className="badge badge-lvl" style={{ fontSize: 9.5, padding: '1px 5px', flexShrink: 0 }}>
+                        {workouts.length} Kayıt
+                      </span>
+                    </button>
+
+                    {/* CSV Export */}
+                    <button
+                      type="button"
+                      onClick={handleExportCSVClick}
+                      className="burger-sub-item"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div 
+                          className="burger-item-icon" 
+                          style={{ 
+                            width: 28, 
+                            height: 28, 
+                            background: 'rgba(16, 185, 129, 0.14)', 
+                            color: 'var(--muscle-emerald)' 
+                          }}
+                        >
+                          <FileSpreadsheet size={14} />
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-main)' }}>CSV / Excel Tablosu</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Excel uyumlu antrenman tablosu</div>
+                        </div>
+                      </div>
+                      <ChevronRight size={13} color="var(--text-dim)" style={{ flexShrink: 0 }} />
+                    </button>
+
+                    {/* Advanced Data Management */}
+                    <button
+                      type="button"
+                      onClick={handleOpenBackup}
+                      className="burger-sub-item"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div 
+                          className="burger-item-icon" 
+                          style={{ 
+                            width: 28, 
+                            height: 28, 
+                            background: 'rgba(56, 189, 248, 0.14)', 
+                            color: 'var(--cyan)' 
+                          }}
+                        >
+                          <Database size={14} />
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-main)' }}>Yedekleme & Geri Yükle</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>JSON yükle, sıfırla veya örnek veri</div>
+                        </div>
+                      </div>
+                      <ChevronRight size={13} color="var(--text-dim)" style={{ flexShrink: 0 }} />
+                    </button>
                   </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>Yedekleme & Geri Yükle</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>JSON yükle, sıfırla veya örnek veri</div>
-                  </div>
-                </div>
-                <ChevronRight size={14} color="var(--text-dim)" />
-              </button>
+                )}
+              </div>
             </div>
 
             {/* SECTION: TERCİHLER (Preferences) */}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
+import { useBackButton } from '../../context/BackNavigationContext';
 import { MuscleGroup } from '../../types/workout';
 import { X, PlusCircle } from 'lucide-react';
 
@@ -18,6 +19,8 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   const [name, setName] = useState('');
   const [muscle, setMuscle] = useState<MuscleGroup>(defaultMuscle);
   const [category, setCategory] = useState<'upper' | 'lower' | 'core' | 'other'>('upper');
+
+  useBackButton(isOpen, onClose, 85);
 
   React.useEffect(() => {
     if (defaultMuscle) {

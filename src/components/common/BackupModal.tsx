@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
 import { useAuth } from '../../context/AuthContext';
+import { useBackButton } from '../../context/BackNavigationContext';
 import { exportToJSON, exportToCSV, parseImportJSON } from '../../utils/backup';
 import { X, Download, Upload, FileSpreadsheet, Trash2, Database, AlertCircle, Sparkles, Cloud } from 'lucide-react';
 
@@ -23,6 +24,8 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+
+  useBackButton(isOpen, onClose, 80);
 
   if (!isOpen) return null;
 

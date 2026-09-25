@@ -2,7 +2,7 @@ import React from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
 import { TabType } from '../../types/workout';
 import { sounds } from '../../utils/audio';
-import { Dumbbell, Trophy } from 'lucide-react';
+import { Dumbbell, History, Trophy } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { activeTab, setActiveTab } = useWorkout();
@@ -11,12 +11,17 @@ export const Navbar: React.FC = () => {
     {
       id: 'workout',
       label: 'Antrenman',
-      icon: <Dumbbell size={22} />
+      icon: <Dumbbell size={21} />
+    },
+    {
+      id: 'history',
+      label: 'Geçmiş',
+      icon: <History size={21} />
     },
     {
       id: 'stats',
-      label: 'Gelişim & İstatistik',
-      icon: <Trophy size={22} />
+      label: 'Gelişim',
+      icon: <Trophy size={21} />
     }
   ];
 
