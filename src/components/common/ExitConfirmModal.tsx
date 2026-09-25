@@ -1,15 +1,11 @@
 import React from 'react';
-import { useBackNavigation, useBackButton } from '../../context/BackNavigationContext';
+import { useBackNavigation } from '../../context/BackNavigationContext';
 import { useWorkout } from '../../context/WorkoutContext';
 import { LogOut, X, ArrowLeft, ShieldAlert } from 'lucide-react';
 
 export const ExitConfirmModal: React.FC = () => {
-  const { isExitModalOpen, cancelExit, confirmExit } = useBackNavigation();
+  const { isExitModalOpen, exitModalPulse, cancelExit, confirmExit } = useBackNavigation();
   const { isLoggingWorkout } = useWorkout();
-
-  // If the user presses the phone's hardware back button while this modal is open,
-  // dismiss the modal and stay in the app (priority 100).
-  useBackButton(isExitModalOpen, cancelExit, 100);
 
   if (!isExitModalOpen) return null;
 
@@ -20,11 +16,12 @@ export const ExitConfirmModal: React.FC = () => {
       style={{
         zIndex: 2000,
         backdropFilter: 'blur(8px)',
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        backgroundColor: 'rgba(0, 0, 0, 0.78)',
         animation: 'fadeIn 0.15s ease-out'
       }}
     >
       <div
+        key={exitModalPulse}
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -33,9 +30,9 @@ export const ExitConfirmModal: React.FC = () => {
           padding: '22px 20px',
           borderRadius: 'var(--radius-xl)',
           background: 'linear-gradient(180deg, #131b2e 0%, #0b1120 100%)',
-          border: '1.5px solid rgba(239, 68, 68, 0.35)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(239, 68, 68, 0.15)',
-          animation: 'slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          border: exitModalPulse > 0 ? '1.5px solid rgba(239, 68, 68, 0.75)' : '1.5px solid rgba(239, 68, 68, 0.35)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(239, 68, 68, 0.2)',
+          animation: exitModalPulse > 0 ? 'fadeIn 0.12s ease-out' : 'slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
         {/* Header */}
@@ -90,9 +87,26 @@ export const ExitConfirmModal: React.FC = () => {
         </div>
 
         {/* Message */}
-        <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px' }}>
+        <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 14px' }}>
           Uygulamayı kapatmak istediğinize emin misiniz?
         </p>
+
+        {exitModalPulse > 0 && (
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#fca5a5',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              padding: '8px 11px',
+              marginBottom: 14
+            }}
+          >
+            Çıkmak için lütfen ekrandaki <strong>"Evet, Uygulamadan Çık"</strong> butonuna dokunun.
+          </div>
+        )}
 
         {/* Active workout alert if currently logging */}
         {isLoggingWorkout && (
@@ -166,7 +180,7 @@ export const ExitConfirmModal: React.FC = () => {
             }}
           >
             <LogOut size={15} />
-            <span>Evet, Uygulamayı Kapat</span>
+            <span>Evet, Uygulamadan Çık</span>
           </button>
         </div>
       </div>

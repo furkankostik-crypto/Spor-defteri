@@ -12,6 +12,7 @@ interface BackHandlerEntry {
 
 interface BackNavigationContextType {
   isExitModalOpen: boolean;
+  exitModalPulse: number;
   openExitModal: () => void;
   cancelExit: () => void;
   confirmExit: () => void;
@@ -21,6 +22,7 @@ interface BackNavigationContextType {
 const BackNavigationContext = createContext<BackNavigationContextType | undefined>(undefined);
 
 let nextHandlerId = 1;
+const MAX_GUARD_DEPTH = 25;
 
 export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const {
@@ -39,16 +41,33 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
   const { isAuthModalOpen, setIsAuthModalOpen } = useAuth();
 
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [exitModalPulse, setExitModalPulse] = useState(0);
 
   // Stack of visited tabs (starts at 'workout')
   const tabHistoryRef = useRef<TabType[]>(['workout']);
   const isBackNavigatingTabRef = useRef(false);
   const isExitingRef = useRef(false);
   const handlersRef = useRef<BackHandlerEntry[]>([]);
+  const lastGesturePushTimeRef = useRef<number>(0);
 
-  // Helper to push a guarded active history entry safely
-  const pushActiveHistoryEntry = useCallback(() => {
+  /**
+   * IMPORTANT CHROMIUM HISTORY INTERVENTION RULE:
+   * Never call `history.pushState` on mount, in `useEffect`, or inside `popstate`!
+   * Calling `pushState` without an active user gesture causes Chromium to mark
+   * the current NavigationEntry with `should_skip_on_back_forward_ui = true`,
+   * which makes the browser skip all entries and close the app on the next back press.
+   *
+   * Instead, ONLY call `pushState` synchronously inside real user gesture events
+   * (`click`, `touchend`, `keydown`), at most once per gesture.
+   */
+  const pushGuardOnUserGesture = useCallback(() => {
     if (isExitingRef.current) return;
+
+    const now = Date.now();
+    if (now - lastGesturePushTimeRef.current < 180) {
+      return;
+    }
+
     try {
       const currentState = window.history.state;
       const currentDepth = typeof currentState?.depth === 'number' ? currentState.depth : 0;
@@ -56,31 +75,13 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       if (!currentState || (!currentState.__spor_root && !currentState.__spor_active)) {
         window.history.replaceState({ __spor_root: true, depth: 0 }, '');
         window.history.pushState({ __spor_active: true, depth: 1 }, '');
-      } else if (currentState.__spor_root || currentDepth === 0) {
-        window.history.pushState({ __spor_active: true, depth: 1 }, '');
-      } else if (currentDepth < 5) {
+        lastGesturePushTimeRef.current = now;
+      } else if (currentDepth < MAX_GUARD_DEPTH) {
         window.history.pushState({ __spor_active: true, depth: currentDepth + 1 }, '');
-      } else {
-        window.history.replaceState({ __spor_active: true, depth: currentDepth, ts: Date.now() }, '');
+        lastGesturePushTimeRef.current = now;
       }
     } catch {
-      // Ignore history API errors in restricted environments
-    }
-  }, []);
-
-  // Ensure at least depth 1 is active in browser history
-  const ensureMinimumActiveGuard = useCallback(() => {
-    if (isExitingRef.current) return;
-    try {
-      const currentState = window.history.state;
-      if (!currentState || (!currentState.__spor_root && !currentState.__spor_active)) {
-        window.history.replaceState({ __spor_root: true, depth: 0 }, '');
-        window.history.pushState({ __spor_active: true, depth: 1 }, '');
-      } else if (currentState.__spor_root || !currentState.depth || currentState.depth < 1) {
-        window.history.pushState({ __spor_active: true, depth: 1 }, '');
-      }
-    } catch {
-      // Ignore
+      // Ignore History API errors
     }
   }, []);
 
@@ -88,13 +89,10 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
   const registerBackHandler = useCallback((handler: () => boolean, priority = 50) => {
     const id = nextHandlerId++;
     handlersRef.current.push({ id, priority, handler });
-    if (priority < 100) {
-      pushActiveHistoryEntry();
-    }
     return () => {
       handlersRef.current = handlersRef.current.filter(item => item.id !== id);
     };
-  }, [pushActiveHistoryEntry]);
+  }, []);
 
   // Track tab navigation history when activeTab changes
   useEffect(() => {
@@ -113,44 +111,47 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
         const filtered = history.filter(t => t !== activeTab);
         tabHistoryRef.current = [...filtered, activeTab];
       }
-      pushActiveHistoryEntry();
     }
-  }, [activeTab, pushActiveHistoryEntry]);
+  }, [activeTab]);
 
-  // Also push history entry when global modals or fullscreen workout logger opens
-  const isFullscreenLogging = isLoggingWorkout && !isWorkoutMinimized && activeTab === 'workout';
+  // On mount: ONLY tag the initial root entry with replaceState (never pushState without gesture)
+  // On real user gestures (click / touchend / keydown in capture phase): push 1 non-skippable guard entry
   useEffect(() => {
-    if (isAuthModalOpen || isProfileModalOpen || isAICoachOpen || isFullscreenLogging) {
-      pushActiveHistoryEntry();
+    try {
+      const currentState = window.history.state;
+      if (!currentState || (!currentState.__spor_root && !currentState.__spor_active)) {
+        window.history.replaceState({ __spor_root: true, depth: 0 }, '');
+      }
+    } catch {
+      // Ignore
     }
-  }, [isAuthModalOpen, isProfileModalOpen, isAICoachOpen, isFullscreenLogging, pushActiveHistoryEntry]);
 
-  // Initialize history guard on mount & refresh user activation on first interaction
-  useEffect(() => {
-    ensureMinimumActiveGuard();
-
-    const handleUserInteraction = () => {
+    const handleUserGesture = () => {
       if (isExitingRef.current) {
         isExitingRef.current = false;
       }
-      ensureMinimumActiveGuard();
+      pushGuardOnUserGesture();
     };
 
-    window.addEventListener('pointerdown', handleUserInteraction, { passive: true });
-    window.addEventListener('keydown', handleUserInteraction, { passive: true });
+    // Capture phase ensures we receive every tap/click even if a child calls stopPropagation()
+    window.addEventListener('click', handleUserGesture, { capture: true, passive: true });
+    window.addEventListener('touchend', handleUserGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', handleUserGesture, { capture: true, passive: true });
 
     return () => {
-      window.removeEventListener('pointerdown', handleUserInteraction);
-      window.removeEventListener('keydown', handleUserInteraction);
+      window.removeEventListener('click', handleUserGesture, { capture: true });
+      window.removeEventListener('touchend', handleUserGesture, { capture: true });
+      window.removeEventListener('keydown', handleUserGesture, { capture: true });
     };
-  }, [ensureMinimumActiveGuard]);
+  }, [pushGuardOnUserGesture]);
 
   // Core back button decision pipeline
   const handleBackNavigation = useCallback((): boolean => {
-    // 1. If Exit Confirmation Modal is already open, pressing back closes it and keeps user in app
+    // 1. If Exit Confirmation Modal is ALREADY open, DO NOT close the app or dismiss the modal!
+    // Keep the modal on screen and pulse it so the user must explicitly choose on screen.
     if (isExitModalOpen) {
       sounds.playPop();
-      setIsExitModalOpen(false);
+      setExitModalPulse(prev => prev + 1);
       return true;
     }
 
@@ -217,7 +218,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       return true;
     }
 
-    // 6. No tabs or modals left to go back to -> Ask user if they really want to exit the app!
+    // 6. No tabs or modals left to go back to -> Show Exit Confirmation Modal!
     sounds.playPop();
     setIsExitModalOpen(true);
     return true;
@@ -240,7 +241,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
       if (isExitingRef.current) {
-        // User confirmed exit: keep stepping back if still on app guard entries
+        // User explicitly confirmed exit on screen: keep stepping back past all app entries
         const state = event.state;
         if (state && (state.__spor_active || state.__spor_root)) {
           try {
@@ -251,16 +252,14 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
         return;
       }
 
-      // Always re-arm the history guard so the app is never closed without confirmation
-      ensureMinimumActiveGuard();
-
       // Run in-app back navigation or show exit confirmation modal
+      // NOTE: Do NOT call history.pushState here inside popstate!
       handleBackNavigation();
     };
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [handleBackNavigation, ensureMinimumActiveGuard]);
+  }, [handleBackNavigation]);
 
   const openExitModal = useCallback(() => {
     sounds.playPop();
@@ -271,8 +270,8 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     sounds.playPop();
     isExitingRef.current = false;
     setIsExitModalOpen(false);
-    pushActiveHistoryEntry();
-  }, [pushActiveHistoryEntry]);
+    pushGuardOnUserGesture();
+  }, [pushGuardOnUserGesture]);
 
   const confirmExit = useCallback(() => {
     sounds.playPop();
@@ -306,7 +305,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     setTimeout(() => {
       if (document.visibilityState === 'visible') {
         showToast({
-          title: 'Çıkış Hazır',
+          title: 'Çıkış Onaylandı',
           description: 'Uygulamayı kapatmak için telefonunuzun geri veya ana ekran tuşuna dokunabilirsiniz.',
           type: 'info'
         });
@@ -318,6 +317,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     <BackNavigationContext.Provider
       value={{
         isExitModalOpen,
+        exitModalPulse,
         openExitModal,
         cancelExit,
         confirmExit,
