@@ -4,6 +4,7 @@ import { formatDisplayDate } from '../../utils/dateUtils';
 import { useWorkout } from '../../context/WorkoutContext';
 import { defaultExercises } from '../../data/defaultExercises';
 import { muscleMetadata } from '../../data/muscleMetadata';
+import { isDurationExercise, isSetValid, getSetDurationSeconds } from '../../utils/calculations';
 import { ExerciseVisual, getExerciseEquipment } from '../workout/ExerciseVisual';
 import { 
   ChevronDown, 
@@ -51,17 +52,22 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({ workout, onEdit }) => 
   let totalSets = 0;
 
   workout.exercises.forEach((ex) => {
+    const isDur = isDurationExercise(ex.id);
     if (ex.detailedSets && ex.detailedSets.length > 0) {
       ex.detailedSets.forEach((s) => {
-        if (s.weight > 0) {
-          totalVolume += s.weight * (s.reps || 5);
+        if (isSetValid(s, isDur)) {
+          if (!isDur) {
+            totalVolume += s.weight * (s.reps || 5);
+          }
           totalSets++;
         }
       });
     } else if (ex.sets) {
       ex.sets.forEach((w) => {
         if (w > 0) {
-          totalVolume += w * 5;
+          if (!isDur) {
+            totalVolume += w * 5;
+          }
           totalSets++;
         }
       });
@@ -201,18 +207,31 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({ workout, onEdit }) => 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
             {workout.exercises.map((ex, idx) => {
               const def = defaultExerciseMap.get(ex.id);
+              const isDuration = isDurationExercise(def || ex.id);
               const muscle = (ex.muscle || def?.muscle || 'chest') as MuscleGroup;
               const meta = muscleMetadata[muscle] || muscleMetadata.chest;
               const equipment = getExerciseEquipment(ex.id, muscle);
 
               const setsData: { weight: number; reps: number }[] = (
                 ex.detailedSets && ex.detailedSets.length > 0
-                  ? ex.detailedSets.filter(s => s.weight > 0).map(s => ({ weight: s.weight, reps: s.reps || 5 }))
-                  : (ex.sets || []).filter(w => w > 0).map(w => ({ weight: w, reps: 5 }))
+                  ? ex.detailedSets
+                      .filter(s => isSetValid(s, isDuration))
+                      .map(s => ({
+                        weight: isDuration ? 0 : s.weight,
+                        reps: isDuration ? getSetDurationSeconds(s, true) : (s.reps || 5)
+                      }))
+                  : (ex.sets || []).filter(w => w > 0).map(w => ({
+                      weight: isDuration ? 0 : w,
+                      reps: isDuration ? w : 5
+                    }))
               );
 
-              const exVolume = setsData.reduce((sum, s) => sum + (s.weight * s.reps), 0);
-              const maxWeight = setsData.length > 0 ? Math.max(...setsData.map(s => s.weight)) : 0;
+              const exVolume = isDuration
+                ? setsData.reduce((sum, s) => sum + s.reps, 0)
+                : setsData.reduce((sum, s) => sum + (s.weight * s.reps), 0);
+              const maxWeight = setsData.length > 0
+                ? Math.max(...setsData.map(s => isDuration ? s.reps : s.weight))
+                : 0;
               const allIdentical = setsData.length > 1 && setsData.every(
                 s => s.weight === setsData[0].weight && s.reps === setsData[0].reps
               );
@@ -290,7 +309,7 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({ workout, onEdit }) => 
                     {/* Exercise Volume Badge */}
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--cyan)' }}>
-                        {exVolume.toLocaleString('tr-TR')} kg
+                        {exVolume.toLocaleString('tr-TR')} {isDuration ? 'sn' : 'kg'}
                       </div>
                       <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginTop: 1 }}>
                         {setsData.length} Set
@@ -315,11 +334,15 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({ workout, onEdit }) => 
                         }}
                       >
                         <span style={{ color: 'var(--cyan)', fontWeight: 800 }}>
-                          {setsData.length} Set × {setsData[0].weight} kg
+                          {isDuration
+                            ? `${setsData.length} Set × ${setsData[0].reps} sn`
+                            : `${setsData.length} Set × ${setsData[0].weight} kg`}
                         </span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 600 }}>
-                          ({setsData[0].reps} tekrar)
-                        </span>
+                        {!isDuration && (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 600 }}>
+                            ({setsData[0].reps} tekrar)
+                          </span>
+                        )}
                         <div style={{ display: 'flex', gap: 3, alignItems: 'center', marginLeft: 2 }}>
                           {setsData.map((_, dotIdx) => (
                             <span
@@ -338,7 +361,7 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({ workout, onEdit }) => 
                     ) : setsData.length > 0 ? (
                       /* Distinct set chips when weights/reps vary */
                       setsData.map((set, sIdx) => {
-                        const isMax = set.weight === maxWeight && setsData.length > 1;
+                        const isMax = (isDuration ? set.reps : set.weight) === maxWeight && setsData.length > 1;
                         return (
                           <div
                             key={sIdx}
@@ -356,12 +379,20 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({ workout, onEdit }) => 
                             <span style={{ color: isMax ? 'var(--gold)' : 'var(--text-dim)', fontSize: 9.5, fontWeight: 700 }}>
                               S{sIdx + 1}
                             </span>
-                            <span style={{ color: isMax ? 'var(--gold)' : '#ffffff', fontWeight: 800 }}>
-                              {set.weight} kg
-                            </span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 600 }}>
-                              × {set.reps}
-                            </span>
+                            {isDuration ? (
+                              <span style={{ color: isMax ? 'var(--gold)' : '#ffffff', fontWeight: 800 }}>
+                                {set.reps} sn
+                              </span>
+                            ) : (
+                              <>
+                                <span style={{ color: isMax ? 'var(--gold)' : '#ffffff', fontWeight: 800 }}>
+                                  {set.weight} kg
+                                </span>
+                                <span style={{ color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 600 }}>
+                                  × {set.reps}
+                                </span>
+                              </>
+                            )}
                           </div>
                         );
                       })

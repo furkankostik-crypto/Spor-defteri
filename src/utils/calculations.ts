@@ -1,14 +1,47 @@
-import { Workout, ExerciseDefinition, ExerciseLevelInfo, OverallPlayerStats, MuscleGroup, MuscleLevelInfo } from '../types/workout';
+import { Workout, ExerciseDefinition, ExerciseLevelInfo, OverallPlayerStats, MuscleGroup, MuscleLevelInfo, ExerciseSet } from '../types/workout';
 import { getRankByLevel } from '../data/rankTiers';
 import { calculateStreak } from './dateUtils';
 
 export const EXP_PER_LEVEL = 500;
 export const OVERALL_EXP_PER_LEVEL = 1000;
 
+export function isDurationExercise(exerciseOrId?: ExerciseDefinition | string | null): boolean {
+  if (!exerciseOrId) return false;
+  if (typeof exerciseOrId === 'string') {
+    return exerciseOrId === 'plank';
+  }
+  return exerciseOrId.measurementType === 'duration' || exerciseOrId.id === 'plank';
+}
+
+export function isSetValid(set: ExerciseSet | undefined | null, isDuration: boolean = false): boolean {
+  if (!set) return false;
+  if (isDuration) {
+    return (set.reps || 0) > 0 || (set.weight || 0) > 0;
+  }
+  return (set.weight || 0) > 0;
+}
+
+export function getSetDurationSeconds(set: ExerciseSet | number, isDuration: boolean = true): number {
+  if (typeof set === 'number') {
+    return set > 0 ? set : 60;
+  }
+  if (!isDuration) return set.reps || 5;
+  // In duration mode, reps holds the seconds (if legacy data had weight > 0 and reps = 60, use reps; if reps === 0 and weight > 0, use weight)
+  if ((set.reps || 0) > 0) return set.reps;
+  if ((set.weight || 0) > 0) return set.weight;
+  return 0;
+}
+
 /**
- * Calculates EXP for a single set based on weight and reps
+ * Calculates EXP for a single set based on weight and reps (or duration in seconds for isometric exercises)
  */
-export function calculateSetEXP(weight: number, reps: number = 5): number {
+export function calculateSetEXP(weight: number, reps: number = 5, isDuration: boolean = false): number {
+  if (isDuration) {
+    const seconds = reps > 0 ? reps : weight;
+    if (seconds <= 0) return 0;
+    // 60 seconds isometric hold = ~180 EXP
+    return Math.round(seconds * 3);
+  }
   if (weight <= 0) return 0;
   return Math.round(weight * Math.max(1, reps));
 }
@@ -26,6 +59,7 @@ export function calculateExerciseLevelInfo(
   let totalSets = 0;
   let totalVolume = 0;
   let lastTrainedDate: string | undefined;
+  const isDuration = isDurationExercise(exercise);
 
   // Workouts are expected to be in descending order (latest first)
   workouts.forEach((w) => {
@@ -38,7 +72,19 @@ export function calculateExerciseLevelInfo(
         // Handle detailedSets if present
         if (savedEx.detailedSets && savedEx.detailedSets.length > 0) {
           savedEx.detailedSets.forEach((set) => {
-            if (set.weight > 0) {
+            if (isDuration) {
+              const sec = getSetDurationSeconds(set, true);
+              if (sec > 0) {
+                const exp = calculateSetEXP(0, sec, true);
+                totalEXP += exp;
+                totalVolume += sec;
+                totalSets++;
+                if (sec > maxWeight) {
+                  maxWeight = sec;
+                  prReps = sec;
+                }
+              }
+            } else if (set.weight > 0) {
               const exp = calculateSetEXP(set.weight, set.reps || 5);
               totalEXP += exp;
               totalVolume += set.weight * (set.reps || 5);
@@ -51,17 +97,28 @@ export function calculateExerciseLevelInfo(
             }
           });
         } else if (savedEx.sets && savedEx.sets.length > 0) {
-          // Legacy format (array of weights with 5 reps assumed)
+          // Legacy format (array of weights with 5 reps assumed, or seconds for duration)
           savedEx.sets.forEach((wgt) => {
             if (wgt > 0) {
-              const exp = calculateSetEXP(wgt, 5);
-              totalEXP += exp;
-              totalVolume += wgt * 5;
-              totalSets++;
+              if (isDuration) {
+                const exp = calculateSetEXP(0, wgt, true);
+                totalEXP += exp;
+                totalVolume += wgt;
+                totalSets++;
+                if (wgt > maxWeight) {
+                  maxWeight = wgt;
+                  prReps = wgt;
+                }
+              } else {
+                const exp = calculateSetEXP(wgt, 5);
+                totalEXP += exp;
+                totalVolume += wgt * 5;
+                totalSets++;
 
-              if (wgt > maxWeight) {
-                maxWeight = wgt;
-                prReps = 5;
+                if (wgt > maxWeight) {
+                  maxWeight = wgt;
+                  prReps = 5;
+                }
               }
             }
           });
@@ -109,7 +166,9 @@ export function calculateOverallPlayerStats(
   allExercises.forEach((ex) => {
     const info = calculateExerciseLevelInfo(ex, workouts);
     combinedEXP += info.totalEXP;
-    totalVolumeKg += info.totalVolume;
+    if (!isDurationExercise(ex)) {
+      totalVolumeKg += info.totalVolume;
+    }
     totalSetsCount += info.totalSets;
   });
 
@@ -144,17 +203,28 @@ export function getLastWorkoutSets(
   workouts: Workout[],
   excludeWorkoutId?: string
 ): { weights: number[]; reps: number[]; date: string } | null {
+  const isDuration = isDurationExercise(exerciseId);
   for (const w of workouts) {
     if (excludeWorkoutId && w.id === excludeWorkoutId) continue;
     for (const ex of w.exercises) {
       if (ex.id === exerciseId) {
         if (ex.detailedSets && ex.detailedSets.length > 0) {
-          const weights = ex.detailedSets.map(s => s.weight);
-          const reps = ex.detailedSets.map(s => s.reps || 5);
-          if (weights.some(w => w > 0)) {
-            return { weights, reps, date: w.date };
+          if (isDuration) {
+            const durations = ex.detailedSets.map(s => getSetDurationSeconds(s, true));
+            if (durations.some(d => d > 0)) {
+              return { weights: durations.map(() => 0), reps: durations, date: w.date };
+            }
+          } else {
+            const weights = ex.detailedSets.map(s => s.weight);
+            const reps = ex.detailedSets.map(s => s.reps || 5);
+            if (weights.some(w => w > 0)) {
+              return { weights, reps, date: w.date };
+            }
           }
         } else if (ex.sets && ex.sets.length > 0 && ex.sets.some(w => w > 0)) {
+          if (isDuration) {
+            return { weights: ex.sets.map(() => 0), reps: ex.sets, date: w.date };
+          }
           return { weights: ex.sets, reps: ex.sets.map(() => 5), date: w.date };
         }
       }
@@ -187,6 +257,9 @@ export function calculateProportionalMuscleVolume(
   workouts.forEach((w) => {
     w.exercises.forEach((savedEx) => {
       const exDef = allExercises.find((e) => e.id === savedEx.id);
+      const isDuration = isDurationExercise(exDef || savedEx.id);
+      if (isDuration) return; // Duration exercises don't add kg tonnage
+
       const activations = exDef?.muscles && exDef.muscles.length > 0
         ? exDef.muscles
         : [{ muscle: savedEx.muscle || exDef?.muscle || 'chest', ratio: 1.0, role: 'primary' as const }];
@@ -257,17 +330,19 @@ export function calculateMuscleLevels(
   workouts.forEach((w) => {
     w.exercises.forEach((savedEx) => {
       const exDef = allExercises.find((e) => e.id === savedEx.id);
+      const isDuration = isDurationExercise(exDef || savedEx.id);
       const activations = exDef?.muscles && exDef.muscles.length > 0
         ? exDef.muscles
         : [{ muscle: savedEx.muscle || exDef?.muscle || 'chest', ratio: 1.0, role: 'primary' as const }];
 
       const sets = savedEx.detailedSets && savedEx.detailedSets.length > 0
-        ? savedEx.detailedSets.filter((s) => s.weight > 0)
-        : (savedEx.sets || []).filter((wgt) => wgt > 0).map((wgt) => ({ weight: wgt, reps: 5 }));
+        ? savedEx.detailedSets.filter((s) => isSetValid(s, isDuration))
+        : (savedEx.sets || []).filter((wgt) => wgt > 0).map((wgt) => ({ weight: isDuration ? 0 : wgt, reps: isDuration ? wgt : 5 }));
 
       sets.forEach((set) => {
-        const setEXP = calculateSetEXP(set.weight, set.reps || 5);
-        const setVolume = set.weight * (set.reps || 5);
+        const secOrReps = isDuration ? getSetDurationSeconds(set as any, true) : (set.reps || 5);
+        const setEXP = calculateSetEXP(set.weight, secOrReps, isDuration);
+        const setVolume = isDuration ? 0 : set.weight * (set.reps || 5);
 
         activations.forEach((act) => {
           if (muscleEXP[act.muscle] !== undefined) {

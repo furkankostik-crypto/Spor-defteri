@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
 import { useBackButton } from '../../context/BackNavigationContext';
 import { usePwaInstall } from '../../context/PwaInstallContext';
-import { calculateExerciseLevelInfo, calculateProportionalMuscleVolume } from '../../utils/calculations';
+import { calculateExerciseLevelInfo, calculateProportionalMuscleVolume, isDurationExercise } from '../../utils/calculations';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { MuscleGroup, ExerciseLevelInfo } from '../../types/workout';
 import { OverallRankCard } from '../levels/OverallRankCard';
@@ -123,9 +123,10 @@ export const ProgressView: React.FC = () => {
 
   const maxMuscleVol = Math.max(...muscleList.map(m => m.volume), 1);
 
-  // Top 5 PR records using memoized map
+  // Top 5 PR records using memoized map (weight-based exercises)
   const prList = useMemo(() => {
     return allExercises
+      .filter(ex => !isDurationExercise(ex))
       .map(ex => exerciseInfoMap.get(ex.id) || calculateExerciseLevelInfo(ex, workouts))
       .filter(info => info.prWeight > 0)
       .sort((a, b) => b.prWeight - a.prWeight)

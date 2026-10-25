@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spor-defterim-v7';
+const CACHE_NAME = 'spor-defterim-v8';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',

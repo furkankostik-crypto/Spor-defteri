@@ -1,6 +1,7 @@
 import { Workout, ExerciseDefinition } from '../types/workout';
 import { mergeWorkoutsByDate } from './workoutMerge';
 import { getTodayLocalDate } from './dateUtils';
+import { isDurationExercise, isSetValid, getSetDurationSeconds, calculateSetEXP } from './calculations';
 
 export interface BackupData {
   version: string;
@@ -36,22 +37,25 @@ export function exportToJSON(workouts: Workout[], customExercises: ExerciseDefin
  * Downloads workouts as a formatted CSV spreadsheet
  */
 export function exportToCSV(workouts: Workout[]) {
-  const headers = ['Tarih', 'Bölge', 'Egzersiz', 'Set Numarası', 'Ağırlık (kg)', 'Tekrar', 'EXP'];
+  const headers = ['Tarih', 'Bölge', 'Egzersiz', 'Set Numarası', 'Ağırlık (kg)', 'Tekrar / Süre (sn)', 'EXP'];
   const rows: string[][] = [headers];
 
   workouts.forEach((w) => {
     w.exercises.forEach((ex) => {
+      const isDuration = isDurationExercise(ex.id);
       if (ex.detailedSets && ex.detailedSets.length > 0) {
         ex.detailedSets.forEach((set, idx) => {
-          if (set.weight > 0) {
+          if (isSetValid(set, isDuration)) {
+            const secsOrReps = isDuration ? getSetDurationSeconds(set, true) : (set.reps || 5);
+            const wgt = isDuration ? 0 : set.weight;
             rows.push([
               w.date,
               w.type,
               `"${ex.name.replace(/"/g, '""')}"`,
               String(idx + 1),
-              String(set.weight),
-              String(set.reps || 5),
-              String(Math.round(set.weight * (set.reps || 5)))
+              String(wgt),
+              isDuration ? `${secsOrReps} sn` : String(secsOrReps),
+              String(calculateSetEXP(wgt, secsOrReps, isDuration))
             ]);
           }
         });
@@ -63,9 +67,9 @@ export function exportToCSV(workouts: Workout[]) {
               w.type,
               `"${ex.name.replace(/"/g, '""')}"`,
               String(idx + 1),
-              String(wgt),
-              '5',
-              String(Math.round(wgt * 5))
+              isDuration ? '0' : String(wgt),
+              isDuration ? `${wgt} sn` : '5',
+              String(calculateSetEXP(isDuration ? 0 : wgt, isDuration ? wgt : 5, isDuration))
             ]);
           }
         });

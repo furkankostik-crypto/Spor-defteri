@@ -8,7 +8,7 @@ import {
   MuscleGroup,
   PTDailyGuidance
 } from '../types/workout';
-import { getLastWorkoutSets } from './calculations';
+import { getLastWorkoutSets, isDurationExercise, isSetValid, getSetDurationSeconds } from './calculations';
 import { detectExercisePlateau } from './scientificCalculations';
 import { muscleMetadata } from '../data/muscleMetadata';
 import { getTodayLocalDate, shiftDateByDays, parseLocalDate } from './dateUtils';
@@ -21,7 +21,68 @@ export function getExerciseOverloadSuggestion(
   workouts: Workout[],
   profile: AthleteProfile
 ): OverloadSuggestion {
+  const isDuration = isDurationExercise(exercise);
   const lastPerformance = getLastWorkoutSets(exercise.id, workouts);
+
+  if (isDuration) {
+    if (!lastPerformance || lastPerformance.reps.length === 0) {
+      return {
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        type: 'maintain',
+        title: '⏱️ Başlangıç & Core İzometrik Duruş',
+        description: 'Bu hareket için ilk kayıt. Temiz formda karın ve kalçayı sıkarak 3 set × 45 saniye tutuş önerilir.',
+        suggestedSets: [
+          { weight: 0, reps: 45 },
+          { weight: 0, reps: 45 },
+          { weight: 0, reps: 45 }
+        ],
+        isPlateau: false
+      };
+    }
+
+    const plateauCheck = detectExercisePlateau(exercise.id, workouts);
+    const validSecs = lastPerformance.reps.filter(r => r > 0);
+    const maxLastSecs = validSecs.length > 0 ? Math.max(...validSecs) : 45;
+    const avgSecs = Math.round(
+      validSecs.reduce((a, b) => a + b, 0) / Math.max(1, validSecs.length)
+    );
+
+    if (plateauCheck.isPlateau) {
+      const deloadSecs = Math.max(20, Math.round((maxLastSecs * 0.9) / 5) * 5);
+      return {
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        type: 'deload_plateau',
+        title: '⚡ Plato Kırma: RKC / Yüksek Gerilim Plank',
+        description: `Son 3 antrenmandır tutuş süresi sabit kaldı. Süreyi ${deloadSecs} saniyeye çekip karın, kalça ve sırtı maksimum sıkarak (RKC stili) sinir sistemini şoklayın.`,
+        suggestedSets: [
+          { weight: 0, reps: deloadSecs },
+          { weight: 0, reps: deloadSecs },
+          { weight: 0, reps: deloadSecs }
+        ],
+        isPlateau: true,
+        plateauWorkoutsCount: plateauCheck.consecutiveCount
+      };
+    }
+
+    const stepSecs = avgSecs >= 60 ? 10 : 5;
+    const targetSecs = Math.min(300, Math.round((maxLastSecs + stepSecs) / 5) * 5);
+
+    return {
+      exerciseId: exercise.id,
+      exerciseName: exercise.name,
+      type: 'increase_reps',
+      title: `⏱️ Süre Artışı: +${stepSecs} Saniye Hedefi`,
+      description: `Geçen seansta ortalama ${avgSecs} sn tutuş yaptın! Bu seansta izometrik core dayanıklılığını artırmak için ${targetSecs} saniye hedefle.`,
+      suggestedSets: [
+        { weight: 0, reps: targetSecs },
+        { weight: 0, reps: targetSecs },
+        { weight: 0, reps: Math.max(30, targetSecs - 5) }
+      ],
+      isPlateau: false
+    };
+  }
 
   // If exercise was never logged, provide a scientific starter suggestion
   if (!lastPerformance || lastPerformance.weights.length === 0) {
@@ -247,18 +308,23 @@ export function getSuggestedNextWorkout(workouts: Workout[]): NextWorkoutSuggest
       todaySplits.add(w.type);
       todayExCount += w.exercises.length;
       w.exercises.forEach((ex) => {
+        const isDur = isDurationExercise(ex.id);
         if (ex.detailedSets) {
           ex.detailedSets.forEach((s) => {
-            if (s.weight > 0) {
+            if (isSetValid(s, isDur)) {
               todaySets++;
-              todayVolume += s.weight * (s.reps || 5);
+              if (!isDur) {
+                todayVolume += s.weight * (s.reps || 5);
+              }
             }
           });
         } else if (ex.sets) {
           ex.sets.forEach((wt) => {
             if (wt > 0) {
               todaySets++;
-              todayVolume += wt * 5;
+              if (!isDur) {
+                todayVolume += wt * 5;
+              }
             }
           });
         }
@@ -487,10 +553,10 @@ export interface RecommendedExerciseItem {
 }
 
 const SPLIT_EXERCISE_PRESETS: Record<SplitType, string[]> = {
-  upper: ['bench', 'latpull', 'incline_bench', 'row', 'shoulder_fly', 'biceps', 'triceps'],
-  lower: ['squat', 'deadlift', 'leg_press', 'ham_ext', 'calf_raise'],
-  full: ['squat', 'bench', 'latpull', 'shoulder_fly', 'cable_crunch'],
-  custom: ['cable_crunch', 'hanging_leg_raise', 'plank']
+  upper: ['bench', 'latpull', 'incline_bench', 'dumbbell_fly', 'row', 'shoulder_fly', 'biceps', 'triceps'],
+  lower: ['squat', 'deadlift', 'leg_press', 'bulgarian_split_squat', 'ham_ext', 'calf_raise'],
+  full: ['squat', 'bench', 'latpull', 'shoulder_fly', 'plank'],
+  custom: ['cable_crunch', 'hanging_leg_raise', 'plank', 'russian_twist']
 };
 
 export function getRecommendedRoutineForSplit(
@@ -509,13 +575,16 @@ export function getRecommendedRoutineForSplit(
     const exercise = allExercises.find((e) => e.id === id);
     if (!exercise) return;
 
+    const isDuration = isDurationExercise(exercise);
     const lastPerf = getLastWorkoutSets(exercise.id, pastWorkouts);
-    const validWeights = lastPerf ? lastPerf.weights.filter((w) => w > 0) : [];
+    const validWeights = lastPerf
+      ? (isDuration ? lastPerf.reps.filter((r) => r > 0) : lastPerf.weights.filter((w) => w > 0))
+      : [];
     const maxLastWeight = validWeights.length > 0 ? Math.max(...validWeights) : undefined;
 
     const overload = getExerciseOverloadSuggestion(exercise, pastWorkouts, profile);
     const suggestedWeight = overload.suggestedSets && overload.suggestedSets.length > 0 
-      ? overload.suggestedSets[0].weight 
+      ? (isDuration ? overload.suggestedSets[0].reps : overload.suggestedSets[0].weight)
       : maxLastWeight;
 
     // Check if this exercise has already been completed today
@@ -527,24 +596,32 @@ export function getRecommendedRoutineForSplit(
     if (todayWorkout) {
       const savedEx = todayWorkout.exercises.find((e) => e.id === exercise.id);
       if (savedEx) {
-        const validDetailed = savedEx.detailedSets?.filter((s) => s.weight > 0) || [];
+        const validDetailed = savedEx.detailedSets?.filter((s) => isSetValid(s, isDuration)) || [];
         const validLegacy = savedEx.sets?.filter((w) => w > 0) || [];
         if (validDetailed.length > 0) {
           isCompletedToday = true;
           todaySetsCount = validDetailed.length;
-          todayMaxWeight = Math.max(...validDetailed.map((s) => s.weight));
-          todaySets = validDetailed.map((s) => ({ weight: s.weight, reps: s.reps || 8 }));
+          todayMaxWeight = Math.max(...validDetailed.map((s) => isDuration ? getSetDurationSeconds(s, true) : s.weight));
+          todaySets = validDetailed.map((s) => ({
+            weight: isDuration ? 0 : s.weight,
+            reps: isDuration ? getSetDurationSeconds(s, true) : (s.reps || 8)
+          }));
         } else if (validLegacy.length > 0) {
           isCompletedToday = true;
           todaySetsCount = validLegacy.length;
           todayMaxWeight = Math.max(...validLegacy);
-          todaySets = validLegacy.map((w) => ({ weight: w, reps: 8 }));
+          todaySets = validLegacy.map((w) => ({
+            weight: isDuration ? 0 : w,
+            reps: isDuration ? w : 8
+          }));
         }
       }
     }
 
-    const isCompound = ['bench', 'squat', 'deadlift', 'latpull', 'row', 'leg_press', 'tbar_row'].includes(exercise.id);
-    const targetReps = isCompound ? '3 Set × 6-8 Tekrar' : '3 Set × 10-12 Tekrar';
+    const isCompound = ['bench', 'squat', 'deadlift', 'latpull', 'row', 'barbell_row', 'pullup', 'leg_press', 'tbar_row'].includes(exercise.id);
+    const targetReps = isDuration
+      ? '3 Set × 45-60 Saniye'
+      : (isCompound ? '3 Set × 6-8 Tekrar' : '3 Set × 10-12 Tekrar');
 
     let targetFocus = 'Hipertrofi';
     if (exercise.muscle === 'chest') targetFocus = 'Göğüs • Kuvvet';

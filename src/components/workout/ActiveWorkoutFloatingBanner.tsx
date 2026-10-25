@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
+import { isDurationExercise, isSetValid } from '../../utils/calculations';
 import { Dumbbell, ChevronUp } from 'lucide-react';
 
 export const ActiveWorkoutFloatingBanner: React.FC = () => {
@@ -46,8 +47,9 @@ export const ActiveWorkoutFloatingBanner: React.FC = () => {
   };
 
   const exerciseCount = Object.keys(draft.exerciseSets).length;
-  const completedSetsCount = Object.values(draft.exerciseSets).reduce((sum, sets) => {
-    return sum + sets.filter(s => s.completed && s.weight > 0).length;
+  const completedSetsCount = Object.entries(draft.exerciseSets).reduce((sum, [exId, sets]) => {
+    const isDur = isDurationExercise(exId);
+    return sum + sets.filter(s => s.completed && isSetValid(s, isDur)).length;
   }, 0);
 
   return (

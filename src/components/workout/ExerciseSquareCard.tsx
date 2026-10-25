@@ -2,6 +2,7 @@ import React from 'react';
 import { ExerciseDefinition } from '../../types/workout';
 import { ExerciseVisual } from './ExerciseVisual';
 import { useWorkout } from '../../context/WorkoutContext';
+import { isDurationExercise, isSetValid } from '../../utils/calculations';
 import { sounds } from '../../utils/audio';
 import { Check, Plus } from 'lucide-react';
 
@@ -19,10 +20,11 @@ export const ExerciseSquareCard: React.FC<ExerciseSquareCardProps> = ({
   lastWeight 
 }) => {
   const { draft } = useWorkout();
+  const isDuration = isDurationExercise(exercise);
 
   // Exercise sets in current draft session
   const currentSets = draft.exerciseSets[exercise.id] || [];
-  const completedSets = currentSets.filter(s => s.completed && s.weight > 0);
+  const completedSets = currentSets.filter(s => s.completed && isSetValid(s, isDuration));
   const isCompleted = currentSets.length > 0 && completedSets.length === currentSets.length;
   const isPartiallyDone = completedSets.length > 0 && !isCompleted;
 
@@ -218,7 +220,7 @@ export const ExerciseSquareCard: React.FC<ExerciseSquareCardProps> = ({
           </div>
         ) : lastWeight ? (
           <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-dim)', marginTop: 2 }}>
-            Son: {lastWeight} kg
+            Son: {lastWeight} {isDuration ? 'sn' : 'kg'}
           </div>
         ) : (
           <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)', marginTop: 2 }}>

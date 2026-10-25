@@ -15,10 +15,12 @@ export type SplitType = 'upper' | 'lower' | 'full' | 'custom';
 
 export interface ExerciseSet {
   id: string;
-  weight: number; // in kg
-  reps: number;   // default 5
+  weight: number; // in kg (or 0 for bodyweight / time-based)
+  reps: number;   // reps or duration in seconds (when measurementType === 'duration')
   completed?: boolean;
 }
+
+export type ExerciseMeasurementType = 'weight_reps' | 'duration';
 
 export interface MuscleActivation {
   muscle: MuscleGroup;
@@ -31,6 +33,7 @@ export interface ExerciseDefinition {
   name: string;
   muscle: MuscleGroup;
   category: 'upper' | 'lower' | 'core' | 'cardio' | 'other';
+  measurementType?: ExerciseMeasurementType;
   muscles?: MuscleActivation[];
   isCustom?: boolean;
 }

@@ -13,19 +13,27 @@ interface ExerciseProgressionConfig {
 const exerciseConfigs: Record<string, ExerciseProgressionConfig> = {
   bench: { id: 'bench', name: 'Bench Press', muscle: 'chest', startWeight: 45, endWeight: 92.5, step: 2.5, baseReps: 8 },
   incline_bench: { id: 'incline_bench', name: 'Incline Dumbbell Press', muscle: 'chest', startWeight: 14, endWeight: 28, step: 2, baseReps: 10 },
+  dumbbell_fly: { id: 'dumbbell_fly', name: 'Dumbbell Fly', muscle: 'chest', startWeight: 8, endWeight: 18, step: 2, baseReps: 12 },
+  cable_crossover: { id: 'cable_crossover', name: 'Cable Crossover', muscle: 'chest', startWeight: 10, endWeight: 22.5, step: 2.5, baseReps: 12 },
   latpull: { id: 'latpull', name: 'Lat Pulldown', muscle: 'back', startWeight: 35, endWeight: 75, step: 5, baseReps: 10 },
+  pullup: { id: 'pullup', name: 'Pull-Up (Barfiks)', muscle: 'back', startWeight: 55, endWeight: 90, step: 2.5, baseReps: 8 },
+  barbell_row: { id: 'barbell_row', name: 'Barbell Bent-Over Row', muscle: 'back', startWeight: 40, endWeight: 85, step: 2.5, baseReps: 8 },
   row: { id: 'row', name: 'Seated Cable Row', muscle: 'back', startWeight: 35, endWeight: 75, step: 5, baseReps: 10 },
   tbar_row: { id: 'tbar_row', name: 'T-Bar Row', muscle: 'back', startWeight: 30, endWeight: 75, step: 2.5, baseReps: 8 },
   shoulder_press: { id: 'shoulder_press', name: 'Shoulder Press', muscle: 'shoulder', startWeight: 12, endWeight: 26, step: 2, baseReps: 8 },
   shoulder_fly: { id: 'shoulder_fly', name: 'Lateral Raise (Omuz Fly)', muscle: 'shoulder', startWeight: 6, endWeight: 14, step: 1, baseReps: 12 },
+  rear_delt_fly: { id: 'rear_delt_fly', name: 'Rear Delt Fly (Arka Omuz Açış)', muscle: 'shoulder', startWeight: 6, endWeight: 14, step: 2, baseReps: 12 },
   face_pull: { id: 'face_pull', name: 'Face Pull', muscle: 'shoulder', startWeight: 20, endWeight: 40, step: 2.5, baseReps: 12 },
   biceps: { id: 'biceps', name: 'Biceps Barbell Curl', muscle: 'biceps', startWeight: 15, endWeight: 35, step: 2.5, baseReps: 10 },
   hammer_curl: { id: 'hammer_curl', name: 'Hammer Curl', muscle: 'biceps', startWeight: 8, endWeight: 18, step: 2, baseReps: 10 },
+  preacher_curl: { id: 'preacher_curl', name: 'Preacher Curl (Scott Curl)', muscle: 'biceps', startWeight: 12.5, endWeight: 30, step: 2.5, baseReps: 10 },
   triceps: { id: 'triceps', name: 'Triceps Pushdown', muscle: 'triceps', startWeight: 20, endWeight: 45, step: 2.5, baseReps: 12 },
   skull_crusher: { id: 'skull_crusher', name: 'Skull Crusher', muscle: 'triceps', startWeight: 15, endWeight: 32.5, step: 2.5, baseReps: 10 },
+  overhead_triceps_ext: { id: 'overhead_triceps_ext', name: 'Overhead Triceps Extension', muscle: 'triceps', startWeight: 14, endWeight: 28, step: 2, baseReps: 12 },
   
   squat: { id: 'squat', name: 'Barbell Squat', muscle: 'quads', startWeight: 50, endWeight: 135, step: 5, baseReps: 6 },
   leg_press: { id: 'leg_press', name: 'Leg Press', muscle: 'quads', startWeight: 100, endWeight: 260, step: 10, baseReps: 10 },
+  bulgarian_split_squat: { id: 'bulgarian_split_squat', name: 'Bulgarian Split Squat', muscle: 'quads', startWeight: 12, endWeight: 30, step: 2, baseReps: 10 },
   quad_ext: { id: 'quad_ext', name: 'Quadriceps Extension', muscle: 'quads', startWeight: 30, endWeight: 75, step: 5, baseReps: 12 },
   deadlift: { id: 'deadlift', name: 'Romanian Deadlift (RDL)', muscle: 'hamstring', startWeight: 50, endWeight: 130, step: 5, baseReps: 8 },
   ham_ext: { id: 'ham_ext', name: 'Hamstring Leg Curl', muscle: 'hamstring', startWeight: 25, endWeight: 60, step: 5, baseReps: 12 },
@@ -35,8 +43,8 @@ const exerciseConfigs: Record<string, ExerciseProgressionConfig> = {
   calf_raise: { id: 'calf_raise', name: 'Calf Raise (Kalf)', muscle: 'calves', startWeight: 30, endWeight: 75, step: 5, baseReps: 15 },
   
   cable_crunch: { id: 'cable_crunch', name: 'Cable Crunch', muscle: 'abs', startWeight: 30, endWeight: 70, step: 5, baseReps: 15 },
-  hanging_leg_raise: { id: 'hanging_leg_raise', name: 'Hanging Leg Raise', muscle: 'abs', startWeight: 0, endWeight: 15, step: 2.5, baseReps: 12 },
-  plank: { id: 'plank', name: 'Plank Hold', muscle: 'abs', startWeight: 0, endWeight: 25, step: 5, baseReps: 60 }
+  hanging_leg_raise: { id: 'hanging_leg_raise', name: 'Hanging Leg Raise', muscle: 'abs', startWeight: 5, endWeight: 15, step: 2.5, baseReps: 12 },
+  plank: { id: 'plank', name: 'Plank Hold', muscle: 'abs', startWeight: 30, endWeight: 120, step: 5, baseReps: 60 }
 };
 
 // Routine Templates
@@ -45,31 +53,31 @@ const routineTemplates = [
   {
     type: 'Üst Vücut',
     splitType: 'upper' as const,
-    exerciseIds: ['bench', 'incline_bench', 'latpull', 'row', 'shoulder_fly', 'biceps', 'triceps']
+    exerciseIds: ['bench', 'incline_bench', 'dumbbell_fly', 'latpull', 'row', 'shoulder_fly', 'biceps', 'triceps']
   },
   // 1: Lower A
   {
     type: 'Alt Vücut',
     splitType: 'lower' as const,
-    exerciseIds: ['squat', 'leg_press', 'deadlift', 'ham_ext', 'calf_raise', 'cable_crunch']
+    exerciseIds: ['squat', 'leg_press', 'deadlift', 'ham_ext', 'calf_raise', 'cable_crunch', 'plank']
   },
   // 2: Upper B
   {
     type: 'Üst Vücut',
     splitType: 'upper' as const,
-    exerciseIds: ['incline_bench', 'tbar_row', 'shoulder_press', 'face_pull', 'shoulder_fly', 'hammer_curl', 'skull_crusher']
+    exerciseIds: ['incline_bench', 'cable_crossover', 'barbell_row', 'tbar_row', 'shoulder_press', 'face_pull', 'hammer_curl', 'skull_crusher']
   },
   // 3: Lower B
   {
     type: 'Alt Vücut',
     splitType: 'lower' as const,
-    exerciseIds: ['deadlift', 'squat', 'hip_thrust', 'quad_ext', 'adductor', 'abductor', 'calf_raise']
+    exerciseIds: ['deadlift', 'squat', 'bulgarian_split_squat', 'hip_thrust', 'quad_ext', 'adductor', 'abductor', 'calf_raise']
   },
   // 4: Full Body (Occasional variety)
   {
     type: 'Tüm Vücut',
     splitType: 'full' as const,
-    exerciseIds: ['bench', 'latpull', 'squat', 'shoulder_press', 'biceps', 'hanging_leg_raise']
+    exerciseIds: ['bench', 'latpull', 'squat', 'shoulder_press', 'biceps', 'plank']
   }
 ];
 
@@ -178,13 +186,24 @@ export function generateTwoYearWorkouts(endDateStr?: string): Workout[] {
             setWeight = config.step;
           }
 
-          detailedSets.push({
-            id: String(s),
-            weight: setWeight,
-            reps: setReps,
-            completed: true
-          });
-          weightsList.push(setWeight);
+          if (exId === 'plank') {
+            const durationSecs = Math.max(20, Math.round(setWeight / 5) * 5);
+            detailedSets.push({
+              id: String(s),
+              weight: 0,
+              reps: durationSecs,
+              completed: true
+            });
+            weightsList.push(durationSecs);
+          } else {
+            detailedSets.push({
+              id: String(s),
+              weight: setWeight,
+              reps: setReps,
+              completed: true
+            });
+            weightsList.push(setWeight);
+          }
         }
 
         recordedExercises.push({

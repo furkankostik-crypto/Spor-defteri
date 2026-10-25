@@ -80,4 +80,43 @@ describe('recommendationEngine.ts — Progressive Overload AI Logic', () => {
     expect(suggestion.suggestedSets[0].weight).toBe(80);
     expect(suggestion.suggestedSets[0].reps).toBe(7);
   });
+
+  it('suggests duration seconds (with weight 0) for Plank exercise', () => {
+    const plankEx: ExerciseDefinition = {
+      id: 'plank',
+      name: 'Plank Hold',
+      muscle: 'abs',
+      category: 'core',
+      measurementType: 'duration'
+    };
+
+    const starter = getExerciseOverloadSuggestion(plankEx, [], defaultProfile);
+    expect(starter.suggestedSets[0].weight).toBe(0);
+    expect(starter.suggestedSets[0].reps).toBe(45);
+
+    const workouts: Workout[] = [
+      {
+        id: 'w-plank',
+        date: '2026-09-01',
+        type: 'Core',
+        splitType: 'custom',
+        createdAt: 1000,
+        exercises: [
+          {
+            id: 'plank',
+            name: 'Plank Hold',
+            detailedSets: [
+              { id: '1', weight: 0, reps: 60, completed: true },
+              { id: '2', weight: 0, reps: 60, completed: true },
+              { id: '3', weight: 0, reps: 60, completed: true }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const nextSuggestion = getExerciseOverloadSuggestion(plankEx, workouts, defaultProfile);
+    expect(nextSuggestion.suggestedSets[0].weight).toBe(0);
+    expect(nextSuggestion.suggestedSets[0].reps).toBe(70);
+  });
 });

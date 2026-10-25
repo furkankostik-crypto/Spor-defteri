@@ -6,6 +6,7 @@ import { AnatomyIcon } from '../../data/anatomyIcons';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { sounds } from '../../utils/audio';
 import { getSuggestedNextWorkout, getRecommendedRoutineForSplit } from '../../utils/recommendationEngine';
+import { isDurationExercise, isSetValid, getSetDurationSeconds } from '../../utils/calculations';
 import { getTodayLocalDate } from '../../utils/dateUtils';
 import { 
   Flame, 
@@ -56,12 +57,15 @@ export const WorkoutView: React.FC = () => {
   // Combine routine items with active draft sets or today's completed logs
   const routineWithStatus = useMemo(() => {
     return recommendedRoutine.map((item) => {
+      const isDur = isDurationExercise(item.exercise);
       // Check if this exercise has progress in the active draft session
       const draftSets = isLoggingWorkout ? draft.exerciseSets[item.exercise.id] : undefined;
-      const completedDraftSets = draftSets ? draftSets.filter(s => s.completed && s.weight > 0) : [];
+      const completedDraftSets = draftSets ? draftSets.filter(s => s.completed && isSetValid(s, isDur)) : [];
       const isDoneInDraft = Boolean(draftSets && draftSets.length > 0 && completedDraftSets.length === draftSets.length);
       const isPartialInDraft = Boolean(completedDraftSets.length > 0 && !isDoneInDraft);
-      const draftMaxWeight = completedDraftSets.length > 0 ? Math.max(...completedDraftSets.map(s => s.weight)) : undefined;
+      const draftMaxWeight = completedDraftSets.length > 0
+        ? Math.max(...completedDraftSets.map(s => isDur ? getSetDurationSeconds(s, true) : s.weight))
+        : undefined;
 
       // Completed if in saved workout today OR completely finished in current active draft
       const isCompleted = Boolean(item.isCompletedToday || isDoneInDraft);
@@ -70,6 +74,7 @@ export const WorkoutView: React.FC = () => {
 
       return {
         ...item,
+        isDuration: isDur,
         isCompleted,
         isPartialInDraft,
         completedDraftSetsCount: completedDraftSets.length,
@@ -115,6 +120,7 @@ export const WorkoutView: React.FC = () => {
     // load its completed sets with completed: true so they are displayed as done!
     // Remaining uncompleted exercises are loaded with target weights ready to perform.
     const preparedExercises = recommendedRoutine.map((item) => {
+      const isDur = isDurationExercise(item.exercise);
       if (item.isCompletedToday && item.todaySets && item.todaySets.length > 0) {
         return {
           exerciseId: item.exercise.id,
@@ -122,13 +128,13 @@ export const WorkoutView: React.FC = () => {
         };
       }
 
-      const targetWeight = item.suggestedWeight || item.lastWeight || 0;
+      const targetVal = item.suggestedWeight || item.lastWeight || (isDur ? 45 : 0);
       return {
         exerciseId: item.exercise.id,
         sets: [
-          { weight: targetWeight, reps: 8, completed: false },
-          { weight: targetWeight, reps: 8, completed: false },
-          { weight: targetWeight, reps: 8, completed: false }
+          { weight: isDur ? 0 : targetVal, reps: isDur ? targetVal : 8, completed: false },
+          { weight: isDur ? 0 : targetVal, reps: isDur ? targetVal : 8, completed: false },
+          { weight: isDur ? 0 : targetVal, reps: isDur ? targetVal : 8, completed: false }
         ]
       };
     });
@@ -676,7 +682,7 @@ export const WorkoutView: React.FC = () => {
                       </span>
                       {item.completedMaxWeight ? (
                         <div style={{ fontSize: 9.5, color: '#a7f3d0', marginTop: 2 }}>
-                          {item.completedMaxWeight} kg
+                          {item.completedMaxWeight} {item.isDuration ? 'sn' : 'kg'}
                         </div>
                       ) : null}
                     </div>
@@ -703,10 +709,10 @@ export const WorkoutView: React.FC = () => {
                           color: item.isOverload ? '#10b981' : '#ffffff'
                         }}
                       >
-                        {item.suggestedWeight ? `${item.suggestedWeight} kg` : `${item.lastWeight} kg`}
+                        {item.suggestedWeight ? `${item.suggestedWeight} ${item.isDuration ? 'sn' : 'kg'}` : `${item.lastWeight} ${item.isDuration ? 'sn' : 'kg'}`}
                       </div>
                       <div style={{ fontSize: 9.5, color: 'var(--text-dim)' }}>
-                        Son: {item.lastWeight} kg
+                        Son: {item.lastWeight} {item.isDuration ? 'sn' : 'kg'}
                       </div>
                     </div>
                   ) : (

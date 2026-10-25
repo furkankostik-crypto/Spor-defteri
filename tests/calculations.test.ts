@@ -3,8 +3,10 @@ import {
   calculateSetEXP, 
   calculateExerciseLevelInfo, 
   calculateOverallPlayerStats,
+  isDurationExercise,
   EXP_PER_LEVEL 
 } from '../src/utils/calculations';
+import { defaultExercises } from '../src/data/defaultExercises';
 import { Workout, ExerciseDefinition } from '../src/types/workout';
 
 describe('calculations.ts — Level, EXP and PR Engine', () => {
@@ -135,6 +137,52 @@ describe('calculations.ts — Level, EXP and PR Engine', () => {
       expect(stats.totalVolumeKg).toBe(0);
       expect(stats.totalSetsCount).toBe(0);
       expect(stats.rankTitle).toBeDefined();
+    });
+
+    it('properly tracks duration exercises (Plank) in EXP and sets without inflating kg volume', () => {
+      const plankDef = defaultExercises.find(e => e.id === 'plank')!;
+      expect(plankDef).toBeDefined();
+      expect(isDurationExercise(plankDef)).toBe(true);
+
+      const mockWorkouts: Workout[] = [
+        {
+          id: 'w-plank',
+          date: '2026-09-05',
+          type: 'Core',
+          splitType: 'custom',
+          createdAt: 1000,
+          exercises: [
+            {
+              id: 'plank',
+              name: 'Plank Hold',
+              muscle: 'abs',
+              sets: [60, 75],
+              detailedSets: [
+                { id: '1', weight: 0, reps: 60, completed: true },
+                { id: '2', weight: 0, reps: 75, completed: true }
+              ]
+            }
+          ]
+        }
+      ];
+
+      const plankInfo = calculateExerciseLevelInfo(plankDef, mockWorkouts);
+      expect(plankInfo.prWeight).toBe(75); // 75 seconds PR
+      expect(plankInfo.totalSets).toBe(2);
+      expect(plankInfo.totalVolume).toBe(135); // 135 total seconds
+      expect(plankInfo.totalEXP).toBe(405); // (60 + 75) * 3 = 405 EXP
+
+      const overall = calculateOverallPlayerStats(mockWorkouts, defaultExercises);
+      expect(overall.totalSetsCount).toBe(2);
+      expect(overall.totalVolumeKg).toBe(0); // Duration seconds do not inflate kg volume
+      expect(overall.totalEXP).toBe(405);
+    });
+
+    it('includes Dumbbell Fly and newly added exercises in defaultExercises', () => {
+      const dumbbellFly = defaultExercises.find(e => e.id === 'dumbbell_fly');
+      expect(dumbbellFly).toBeDefined();
+      expect(dumbbellFly?.muscle).toBe('chest');
+      expect(defaultExercises.length).toBeGreaterThanOrEqual(40);
     });
   });
 });

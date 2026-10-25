@@ -5,6 +5,7 @@ import { muscleMetadata } from '../../data/muscleMetadata';
 import { useWorkout } from '../../context/WorkoutContext';
 import { getSuggestedNextWorkout } from '../../utils/recommendationEngine';
 import { calculateWorkoutSessionTarget, MuscleTargetProgress } from '../../utils/workoutTargets';
+import { isDurationExercise, isSetValid } from '../../utils/calculations';
 import { sounds } from '../../utils/audio';
 import { RotateCw, Zap, Check } from 'lucide-react';
 import { FRONT_PATHS, BACK_PATHS } from '../../data/bodyMapPaths';
@@ -54,21 +55,30 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     };
 
     allExercises.forEach((ex) => {
+      const countedPrimary = new Set<MuscleGroup>();
       if (stats[ex.muscle]) {
         stats[ex.muscle].exerciseCount++;
+        countedPrimary.add(ex.muscle);
       }
+      ex.muscles?.forEach((act) => {
+        if (act.role === 'primary' && stats[act.muscle] && !countedPrimary.has(act.muscle)) {
+          stats[act.muscle].exerciseCount++;
+          countedPrimary.add(act.muscle);
+        }
+      });
     });
 
     Object.entries(draft.exerciseSets).forEach(([exId, sets]) => {
       const ex = allExercises.find((e) => e.id === exId);
       if (ex) {
+        const isDur = isDurationExercise(ex);
         const activations = ex.muscles && ex.muscles.length > 0
           ? ex.muscles
           : [{ muscle: ex.muscle, ratio: 1.0, role: 'primary' as const }];
 
         sets.forEach((s) => {
-          if (s.weight > 0) {
-            const vol = s.weight * (s.reps || 5);
+          if (isSetValid(s, isDur)) {
+            const vol = isDur ? 0 : s.weight * (s.reps || 5);
             activations.forEach((act) => {
               if (stats[act.muscle]) {
                 stats[act.muscle].setsCount += act.role === 'primary' ? 1 : 0.5;

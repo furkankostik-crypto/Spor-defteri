@@ -11,7 +11,7 @@ import {
 } from '../types/workout';
 import { defaultExercises } from '../data/defaultExercises';
 import { getTodayLocalDate } from '../utils/dateUtils';
-import { calculateOverallPlayerStats, calculateExerciseLevelInfo } from '../utils/calculations';
+import { calculateOverallPlayerStats, calculateExerciseLevelInfo, isDurationExercise, isSetValid, getSetDurationSeconds } from '../utils/calculations';
 import { sounds } from '../utils/audio';
 import { generateTwoYearWorkouts } from '../data/mockWorkouts';
 import { useAuth } from './AuthContext';
@@ -401,18 +401,20 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newExerciseSets: Record<string, ExerciseSet[]> = {};
     if (exercises && exercises.length > 0) {
       exercises.forEach((item) => {
+        const isDur = isDurationExercise(item.exerciseId);
         if (item.sets && item.sets.length > 0) {
           newExerciseSets[item.exerciseId] = item.sets.map((s, idx) => ({
             id: String(idx + 1),
-            weight: s.weight,
-            reps: s.reps || 8,
+            weight: isDur ? 0 : s.weight,
+            reps: isDur ? (s.reps > 0 ? s.reps : (s.weight > 0 ? s.weight : 45)) : (s.reps || 8),
             completed: Boolean(s.completed)
           }));
         } else {
+          const initReps = isDur ? 45 : 8;
           newExerciseSets[item.exerciseId] = [
-            { id: '1', weight: 0, reps: 8, completed: false },
-            { id: '2', weight: 0, reps: 8, completed: false },
-            { id: '3', weight: 0, reps: 8, completed: false }
+            { id: '1', weight: 0, reps: initReps, completed: false },
+            { id: '2', weight: 0, reps: initReps, completed: false },
+            { id: '3', weight: 0, reps: initReps, completed: false }
           ];
         }
       });
@@ -518,6 +520,9 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addExerciseToDraft = (exerciseId: string, defaultWeight: number = 0, defaultReps: number = 8) => {
     sounds.playPop();
+    const isDur = isDurationExercise(exerciseId);
+    const initWeight = isDur ? 0 : defaultWeight;
+    const initReps = isDur ? (defaultWeight > 0 ? defaultWeight : (defaultReps !== 8 ? defaultReps : 45)) : defaultReps;
     setDraft(prev => {
       if (prev.exerciseSets[exerciseId]) return prev;
       return {
@@ -525,9 +530,9 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         exerciseSets: {
           ...prev.exerciseSets,
           [exerciseId]: [
-            { id: '1', weight: defaultWeight, reps: defaultReps, completed: false },
-            { id: '2', weight: defaultWeight, reps: defaultReps, completed: false },
-            { id: '3', weight: defaultWeight, reps: defaultReps, completed: false }
+            { id: '1', weight: initWeight, reps: initReps, completed: false },
+            { id: '2', weight: initWeight, reps: initReps, completed: false },
+            { id: '3', weight: initWeight, reps: initReps, completed: false }
           ]
         }
       };
@@ -535,6 +540,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateDraftSet = (exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => {
+    const isDur = isDurationExercise(exerciseId);
     setDraft(prev => {
       const currentSets = prev.exerciseSets[exerciseId] ? [...prev.exerciseSets[exerciseId]] : [
         { id: '1', weight: 0, reps: 0 },
@@ -547,14 +553,16 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       const normalizedVal = isNaN(value) ? 0 : Math.max(0, value);
-      const nextWeight = field === 'weight' ? normalizedVal : currentSets[setIndex].weight;
-      const nextCompleted = field === 'weight'
-        ? normalizedVal > 0
-        : (currentSets[setIndex].completed ?? nextWeight > 0);
+      const nextWeight = isDur ? 0 : (field === 'weight' ? normalizedVal : currentSets[setIndex].weight);
+      const nextReps = field === 'reps' ? normalizedVal : currentSets[setIndex].reps;
+      const nextCompleted = isDur
+        ? (field === 'reps' ? normalizedVal > 0 : Boolean(currentSets[setIndex].completed))
+        : (field === 'weight' ? normalizedVal > 0 : (currentSets[setIndex].completed ?? nextWeight > 0));
 
       currentSets[setIndex] = {
         ...currentSets[setIndex],
-        [field]: normalizedVal,
+        weight: nextWeight,
+        reps: nextReps,
         completed: nextCompleted
       };
 
@@ -716,16 +724,19 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     allExercises.forEach(ex => {
       const sets = draft.exerciseSets[ex.id];
       if (sets && sets.length > 0) {
+        const isDur = isDurationExercise(ex);
         const validSets = hasAnyCompleted
-          ? sets.filter(s => s.completed === true && s.weight > 0)
-          : sets.filter(s => s.weight > 0);
+          ? sets.filter(s => s.completed === true && isSetValid(s, isDur))
+          : sets.filter(s => isSetValid(s, isDur));
         if (validSets.length > 0) {
           // Check if this workout broke a PR
           const currentInfo = calculateExerciseLevelInfo(ex, workouts);
-          const maxInThisWorkout = Math.max(...validSets.map(s => s.weight));
+          const maxInThisWorkout = Math.max(
+            ...validSets.map(s => isDur ? getSetDurationSeconds(s, true) : s.weight)
+          );
           
           if (maxInThisWorkout > currentInfo.prWeight) {
-            newPRs.push(`${ex.name}: ${maxInThisWorkout} kg`);
+            newPRs.push(`${ex.name}: ${maxInThisWorkout} ${isDur ? 'sn' : 'kg'}`);
             isOverallPR = true;
           }
 
@@ -733,10 +744,11 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
             id: ex.id,
             name: ex.name,
             muscle: ex.muscle,
-            sets: validSets.map(s => s.weight),
+            sets: validSets.map(s => isDur ? getSetDurationSeconds(s, true) : s.weight),
             detailedSets: validSets.map(s => ({
               ...s,
-              reps: s.reps > 0 ? s.reps : 5
+              weight: isDur ? 0 : s.weight,
+              reps: isDur ? getSetDurationSeconds(s, true) : (s.reps > 0 ? s.reps : 5)
             }))
           });
         }
@@ -746,7 +758,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (recordedExercises.length === 0) {
       showToast({
         title: '⚠️ Boş Antrenman',
-        description: 'Lütfen en az bir hareket için ağırlık girin.',
+        description: 'Lütfen en az bir hareket için ağırlık veya süre girin.',
         type: 'error'
       });
       return { success: false, isPR: false, newPRs: [] };
@@ -1016,10 +1028,11 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }));
 
+    const isDur = isDurationExercise(ex);
     sounds.playSuccess();
     showToast({
-      title: '🎯 Hedef Ağırlıklar Dolduruldu',
-      description: `${ex.name}: ${suggestion.suggestedSets.map(s => `${s.weight}kg x ${s.reps}`).join(', ')} uygulandı.`,
+      title: isDur ? '🎯 Hedef Süreler Dolduruldu' : '🎯 Hedef Ağırlıklar Dolduruldu',
+      description: `${ex.name}: ${suggestion.suggestedSets.map(s => isDur ? `${s.reps} sn` : `${s.weight}kg x ${s.reps}`).join(', ')} uygulandı.`,
       type: 'success'
     });
   }, [allExercises, workouts, profile, showToast]);

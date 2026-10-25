@@ -4,6 +4,7 @@ import { muscleMetadata } from '../../data/muscleMetadata';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { sounds } from '../../utils/audio';
 import { calculateWorkoutSessionTarget } from '../../utils/workoutTargets';
+import { isDurationExercise, isSetValid, getSetDurationSeconds } from '../../utils/calculations';
 import { 
   ShoppingBag, 
   ChevronUp, 
@@ -41,14 +42,18 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
     );
   }, [draft.splitType, draft.exerciseSets, allExercises]);
 
-  // Compute active cart items with valid sets (weight > 0)
+  // Compute active cart items with valid sets (weight > 0 or duration > 0)
   const activeCartItems = allExercises
     .map((ex) => {
+      const isDuration = isDurationExercise(ex);
       const sets = draft.exerciseSets[ex.id] || [];
-      const validSets = sets.filter((s) => s.weight > 0);
-      const totalVolume = validSets.reduce((sum, s) => sum + s.weight * (s.reps || 5), 0);
+      const validSets = sets.filter((s) => isSetValid(s, isDuration));
+      const totalVolume = isDuration
+        ? validSets.reduce((sum, s) => sum + getSetDurationSeconds(s, true), 0)
+        : validSets.reduce((sum, s) => sum + s.weight * (s.reps || 5), 0);
       return {
         exercise: ex,
+        isDuration,
         sets,
         validSets,
         totalVolume,
@@ -58,7 +63,7 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
     .filter((item) => item.setCount > 0);
 
   const totalSetsCount = activeCartItems.reduce((acc, item) => acc + item.setCount, 0);
-  const totalVolumeSum = activeCartItems.reduce((acc, item) => acc + item.totalVolume, 0);
+  const totalVolumeSum = activeCartItems.reduce((acc, item) => acc + (item.isDuration ? 0 : item.totalVolume), 0);
   const distinctExercisesCount = activeCartItems.length;
 
   const handleToggle = () => {
@@ -469,7 +474,7 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
                                 {item.exercise.name}
                               </div>
                               <div style={{ fontSize: 10, color: meta.color, fontWeight: 600 }}>
-                                {meta.name} • {item.setCount} Set • {item.totalVolume.toLocaleString()} kg
+                                {meta.name} • {item.setCount} Set • {item.totalVolume.toLocaleString()} {item.isDuration ? 'sn' : 'kg'}
                               </div>
                             </div>
                           </div>
@@ -522,7 +527,8 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
                         {/* Sets List */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {item.sets.map((set, setIdx) => {
-                            const isSetValid = set.weight > 0;
+                            const valid = isSetValid(set, item.isDuration);
+                            const secs = item.isDuration ? getSetDurationSeconds(set, true) : 0;
                             return (
                               <div
                                 key={setIdx}
@@ -530,28 +536,36 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
-                                  background: isSetValid ? 'rgba(30, 41, 59, 0.6)' : 'rgba(30, 41, 59, 0.25)',
+                                  background: valid ? 'rgba(30, 41, 59, 0.6)' : 'rgba(30, 41, 59, 0.25)',
                                   padding: '5px 10px',
                                   borderRadius: 'var(--radius-sm)',
                                   fontSize: 12,
-                                  opacity: isSetValid ? 1 : 0.6
+                                  opacity: valid ? 1 : 0.6
                                 }}
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span style={{ fontWeight: 700, color: 'var(--text-dim)', fontSize: 11 }}>
                                     #{setIdx + 1}
                                   </span>
-                                  <span style={{ fontWeight: 700, color: '#ffffff' }}>
-                                    {set.weight} kg
-                                  </span>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                                    × {set.reps || 5} tekrar
-                                  </span>
+                                  {item.isDuration ? (
+                                    <span style={{ fontWeight: 700, color: '#ffffff' }}>
+                                      {secs} saniye
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontWeight: 700, color: '#ffffff' }}>
+                                        {set.weight} kg
+                                      </span>
+                                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                                        × {set.reps || 5} tekrar
+                                      </span>
+                                    </>
+                                  )}
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span style={{ fontSize: 10, color: 'var(--muscle-emerald)', fontWeight: 600 }}>
-                                    {set.weight * (set.reps || 5)} kg
+                                    {item.isDuration ? `${secs} sn` : `${set.weight * (set.reps || 5)} kg`}
                                   </span>
                                   {item.sets.length > 1 && (
                                     <button

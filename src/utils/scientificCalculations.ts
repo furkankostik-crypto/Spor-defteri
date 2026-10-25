@@ -10,10 +10,12 @@ import {
 } from '../types/workout';
 import { 
   strengthTierConfigs, 
-  getExerciseStandards 
+  getExerciseStandards,
+  getDurationStandards
 } from '../data/strengthStandards';
 import { muscleMetadata } from '../data/muscleMetadata';
 import { getTodayLocalDate, shiftDateByDays } from './dateUtils';
+import { isDurationExercise, isSetValid, getSetDurationSeconds } from './calculations';
 
 /**
  * Calculates Estimated 1RM (One Rep Max) using Epley Formula
@@ -35,6 +37,7 @@ export function getBest1RMForExercise(
   exerciseId: string, 
   workouts: Workout[]
 ): { best1RM: number; weight: number; reps: number; date?: string } {
+  const isDuration = isDurationExercise(exerciseId);
   let best1RM = 0;
   let bestWeight = 0;
   let bestReps = 0;
@@ -45,7 +48,15 @@ export function getBest1RMForExercise(
       if (ex.id === exerciseId) {
         if (ex.detailedSets && ex.detailedSets.length > 0) {
           ex.detailedSets.forEach((s) => {
-            if (s.weight > 0) {
+            if (isDuration) {
+              const secs = getSetDurationSeconds(s, true);
+              if (secs > best1RM) {
+                best1RM = secs;
+                bestWeight = 0;
+                bestReps = secs;
+                bestDate = w.date;
+              }
+            } else if (s.weight > 0) {
               const est1RM = calculate1RM(s.weight, s.reps || 5);
               if (est1RM > best1RM) {
                 best1RM = est1RM;
@@ -58,12 +69,21 @@ export function getBest1RMForExercise(
         } else if (ex.sets && ex.sets.length > 0) {
           ex.sets.forEach((wgt) => {
             if (wgt > 0) {
-              const est1RM = calculate1RM(wgt, 5);
-              if (est1RM > best1RM) {
-                best1RM = est1RM;
-                bestWeight = wgt;
-                bestReps = 5;
-                bestDate = w.date;
+              if (isDuration) {
+                if (wgt > best1RM) {
+                  best1RM = wgt;
+                  bestWeight = 0;
+                  bestReps = wgt;
+                  bestDate = w.date;
+                }
+              } else {
+                const est1RM = calculate1RM(wgt, 5);
+                if (est1RM > best1RM) {
+                  best1RM = est1RM;
+                  bestWeight = wgt;
+                  bestReps = 5;
+                  bestDate = w.date;
+                }
               }
             }
           });
@@ -83,9 +103,88 @@ export function getExerciseStrengthAnalysis(
   workouts: Workout[],
   profile: AthleteProfile
 ): ExerciseStrengthAnalysis {
+  const isDuration = isDurationExercise(exercise);
   const { best1RM, weight: bestSetWeight, reps: bestSetReps } = getBest1RMForExercise(exercise.id, workouts);
   const bodyWeight = Math.max(30, profile.bodyWeightKg || 75);
   const gender = profile.gender || 'male';
+
+  if (isDuration) {
+    const dStandards = getDurationStandards(exercise.id);
+    const bestSecs = best1RM;
+    const sBeginner = dStandards.beginner;
+    const sNovice = dStandards.novice;
+    const sIntermediate = dStandards.intermediate;
+    const sAdvanced = dStandards.advanced;
+    const sElite = dStandards.elite;
+
+    let tier: StrengthTier = 'beginner';
+    let tierProgressPct = 0;
+    let nextTierWeight = sBeginner;
+    let nextTierTitle = strengthTierConfigs.novice.title;
+    let strengthScore = 0;
+
+    if (bestSecs < sBeginner) {
+      tier = 'beginner';
+      tierProgressPct = Math.min(100, Math.max(0, Math.round((bestSecs / sBeginner) * 100)));
+      nextTierWeight = sBeginner;
+      nextTierTitle = strengthTierConfigs.beginner.title;
+      strengthScore = Math.round((bestSecs / sBeginner) * 20);
+    } else if (bestSecs < sNovice) {
+      tier = 'beginner';
+      const range = sNovice - sBeginner;
+      tierProgressPct = Math.min(100, Math.max(0, Math.round(((bestSecs - sBeginner) / range) * 100)));
+      nextTierWeight = sNovice;
+      nextTierTitle = strengthTierConfigs.novice.title;
+      strengthScore = Math.round(20 + ((bestSecs - sBeginner) / range) * 20);
+    } else if (bestSecs < sIntermediate) {
+      tier = 'novice';
+      const range = sIntermediate - sNovice;
+      tierProgressPct = Math.min(100, Math.max(0, Math.round(((bestSecs - sNovice) / range) * 100)));
+      nextTierWeight = sIntermediate;
+      nextTierTitle = strengthTierConfigs.intermediate.title;
+      strengthScore = Math.round(40 + ((bestSecs - sNovice) / range) * 20);
+    } else if (bestSecs < sAdvanced) {
+      tier = 'intermediate';
+      const range = sAdvanced - sIntermediate;
+      tierProgressPct = Math.min(100, Math.max(0, Math.round(((bestSecs - sIntermediate) / range) * 100)));
+      nextTierWeight = sAdvanced;
+      nextTierTitle = strengthTierConfigs.advanced.title;
+      strengthScore = Math.round(60 + ((bestSecs - sIntermediate) / range) * 20);
+    } else if (bestSecs < sElite) {
+      tier = 'advanced';
+      const range = sElite - sAdvanced;
+      tierProgressPct = Math.min(100, Math.max(0, Math.round(((bestSecs - sAdvanced) / range) * 100)));
+      nextTierWeight = sElite;
+      nextTierTitle = strengthTierConfigs.elite.title;
+      strengthScore = Math.round(80 + ((bestSecs - sAdvanced) / range) * 20);
+    } else {
+      tier = 'elite';
+      tierProgressPct = 100;
+      nextTierWeight = sElite;
+      nextTierTitle = 'Maksimum Zirve';
+      strengthScore = Math.min(100, Math.round(95 + ((bestSecs - sElite) / 60) * 5));
+    }
+
+    const config = strengthTierConfigs[tier];
+
+    return {
+      exerciseId: exercise.id,
+      exerciseName: exercise.name,
+      estimated1RM: bestSecs,
+      bestSetWeight: 0,
+      bestSetReps: bestSecs,
+      bodyweightRatio: Math.round((bestSecs / 60) * 100) / 100,
+      strengthScore: Math.min(100, Math.max(0, strengthScore)),
+      tier,
+      tierTitle: config.title,
+      tierBadge: config.badge,
+      tierColor: config.color,
+      tierGradient: config.gradient,
+      tierProgressPct,
+      nextTierWeight,
+      nextTierTitle
+    };
+  }
 
   const standards = getExerciseStandards(exercise.id)[gender];
   const bodyweightRatio = Math.round((best1RM / bodyWeight) * 100) / 100;
@@ -222,6 +321,7 @@ export function calculateOverallGymLevels(
   else overallTier = 'beginner';
 
   const config = strengthTierConfigs[overallTier];
+  const weightAnalyses = analyses.filter((a) => !isDurationExercise(a.exerciseId));
 
   return {
     overallStrengthScore: avgScore,
@@ -230,8 +330,8 @@ export function calculateOverallGymLevels(
     overallTierBadge: config.badge,
     overallTierColor: config.color,
     overallTierGradient: config.gradient,
-    strongestLift: analyses[0] || null,
-    needsWorkLift: analyses[analyses.length - 1] || null,
+    strongestLift: weightAnalyses[0] || analyses[0] || null,
+    needsWorkLift: weightAnalyses[weightAnalyses.length - 1] || analyses[analyses.length - 1] || null,
     totalAnalyzedExercises: analyses.length
   };
 }
@@ -259,9 +359,10 @@ export function calculateWeeklyVolumeLandmarks(
         ? exDef.muscles
         : [{ muscle: savedEx.muscle || exDef?.muscle || 'chest', ratio: 1.0, role: 'primary' as const }];
 
+      const isDuration = isDurationExercise(exDef || savedEx.id);
       let validSetsCount = 0;
       if (savedEx.detailedSets && savedEx.detailedSets.length > 0) {
-        validSetsCount = savedEx.detailedSets.filter((s) => s.weight > 0).length;
+        validSetsCount = savedEx.detailedSets.filter((s) => isSetValid(s, isDuration)).length;
       } else if (savedEx.sets && savedEx.sets.length > 0) {
         validSetsCount = savedEx.sets.filter((wgt) => wgt > 0).length;
       }
@@ -339,6 +440,7 @@ export function detectExercisePlateau(
   exerciseId: string,
   workouts: Workout[]
 ): { isPlateau: boolean; consecutiveCount: number; max1RM: number } {
+  const isDuration = isDurationExercise(exerciseId);
   // Collect history of this exercise chronologically
   const session1RMs: number[] = [];
 
@@ -349,14 +451,19 @@ export function detectExercisePlateau(
       let maxSession1RM = 0;
       if (ex.detailedSets && ex.detailedSets.length > 0) {
         ex.detailedSets.forEach((s) => {
-          if (s.weight > 0) {
+          if (isDuration) {
+            const secs = getSetDurationSeconds(s, true);
+            if (secs > 0) {
+              maxSession1RM = Math.max(maxSession1RM, secs);
+            }
+          } else if (s.weight > 0) {
             maxSession1RM = Math.max(maxSession1RM, calculate1RM(s.weight, s.reps || 5));
           }
         });
       } else if (ex.sets && ex.sets.length > 0) {
         ex.sets.forEach((wgt) => {
           if (wgt > 0) {
-            maxSession1RM = Math.max(maxSession1RM, calculate1RM(wgt, 5));
+            maxSession1RM = Math.max(maxSession1RM, isDuration ? wgt : calculate1RM(wgt, 5));
           }
         });
       }

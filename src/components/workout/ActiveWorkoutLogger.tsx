@@ -8,7 +8,7 @@ import { AnatomicalBodyMap } from './AnatomicalBodyMap';
 import { MuscleDetailView } from './MuscleDetailView';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { muscleMetadata } from '../../data/muscleMetadata';
-import { getLastWorkoutSets } from '../../utils/calculations';
+import { getLastWorkoutSets, isDurationExercise, isSetValid } from '../../utils/calculations';
 import { sounds } from '../../utils/audio';
 import { 
   Check, 
@@ -63,12 +63,17 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
     activeExerciseIds.forEach(id => {
       const exercise = allExercises.find(e => e.id === id);
       if (!exercise) return;
+      const isDur = isDurationExercise(exercise);
       const sets = draft.exerciseSets[id] || [];
-      const completedSets = sets.filter(s => s.completed && s.weight > 0).length;
+      const completedSets = sets.filter(s => s.completed && isSetValid(s, isDur)).length;
       const isDone = sets.length > 0 && completedSets === sets.length;
       const isStarted = completedSets > 0 && !isDone;
       const lastPerf = getLastWorkoutSets(id, workouts);
-      const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : undefined;
+      const lastWeight = lastPerf
+        ? (isDur
+            ? (lastPerf.reps.filter(r => r > 0).length > 0 ? Math.max(...lastPerf.reps.filter(r => r > 0)) : undefined)
+            : (lastPerf.weights.filter(w => w > 0).length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : undefined))
+        : undefined;
       list.push({
         exercise,
         sets,
@@ -215,9 +220,14 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
   const handleAddOrOpenExercise = (exercise: ExerciseDefinition) => {
     sounds.playPop();
     if (!draft.exerciseSets[exercise.id]) {
+      const isDur = isDurationExercise(exercise);
       const lastPerf = getLastWorkoutSets(exercise.id, workouts);
-      const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : 0;
-      addExerciseToDraft(exercise.id, lastWeight, 8);
+      const lastVal = lastPerf
+        ? (isDur
+            ? (lastPerf.reps.filter(r => r > 0).length > 0 ? Math.max(...lastPerf.reps.filter(r => r > 0)) : 45)
+            : (lastPerf.weights.filter(w => w > 0).length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : 0))
+        : (isDur ? 45 : 0);
+      addExerciseToDraft(exercise.id, isDur ? 0 : lastVal, isDur ? lastVal : 8);
       showToast({
         title: '✓ Seansa Eklendi',
         description: `${exercise.name} antrenmanınıza eklendi.`,
@@ -688,8 +698,13 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                 }}
               >
                 {splitExercises.map((exercise) => {
+                  const isDur = isDurationExercise(exercise);
                   const lastPerf = getLastWorkoutSets(exercise.id, workouts);
-                  const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : undefined;
+                  const lastWeight = lastPerf
+                    ? (isDur
+                        ? (lastPerf.reps.filter(r => r > 0).length > 0 ? Math.max(...lastPerf.reps.filter(r => r > 0)) : undefined)
+                        : (lastPerf.weights.filter(w => w > 0).length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : undefined))
+                    : undefined;
                   return (
                     <ExerciseSquareCard
                       key={exercise.id}
@@ -758,8 +773,13 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                 {filteredSearchExercises.map(ex => {
                   const meta = muscleMetadata[ex.muscle];
                   const isAdded = Boolean(draft.exerciseSets[ex.id]);
+                  const isDur = isDurationExercise(ex);
                   const lastPerf = getLastWorkoutSets(ex.id, workouts);
-                  const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : null;
+                  const lastWeight = lastPerf
+                    ? (isDur
+                        ? (lastPerf.reps.filter(r => r > 0).length > 0 ? Math.max(...lastPerf.reps.filter(r => r > 0)) : null)
+                        : (lastPerf.weights.filter(w => w > 0).length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : null))
+                    : null;
 
                   return (
                     <div
@@ -785,7 +805,7 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                             {ex.name}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            {meta?.name || ex.muscle} {lastWeight ? `• Son: ${lastWeight} kg` : ''}
+                            {meta?.name || ex.muscle} {lastWeight ? `• Son: ${lastWeight} ${isDur ? 'sn' : 'kg'}` : ''}
                           </div>
                         </div>
                       </div>
@@ -1287,8 +1307,13 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                     }}
                   >
                     {splitExercises.map((exercise) => {
+                      const isDur = isDurationExercise(exercise);
                       const lastPerf = getLastWorkoutSets(exercise.id, workouts);
-                      const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : undefined;
+                      const lastWeight = lastPerf
+                        ? (isDur
+                            ? (lastPerf.reps.filter(r => r > 0).length > 0 ? Math.max(...lastPerf.reps.filter(r => r > 0)) : undefined)
+                            : (lastPerf.weights.filter(w => w > 0).length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : undefined))
+                        : undefined;
                       return (
                         <ExerciseSquareCard
                           key={exercise.id}
@@ -1354,8 +1379,13 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                     {filteredSearchExercises.map(ex => {
                       const meta = muscleMetadata[ex.muscle];
                       const isAdded = Boolean(draft.exerciseSets[ex.id]);
+                      const isDur = isDurationExercise(ex);
                       const lastPerf = getLastWorkoutSets(ex.id, workouts);
-                      const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : null;
+                      const lastWeight = lastPerf
+                        ? (isDur
+                            ? (lastPerf.reps.filter(r => r > 0).length > 0 ? Math.max(...lastPerf.reps.filter(r => r > 0)) : null)
+                            : (lastPerf.weights.filter(w => w > 0).length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : null))
+                        : null;
 
                       return (
                         <div
@@ -1381,7 +1411,7 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                                 {ex.name}
                               </div>
                               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                {meta?.name || ex.muscle} {lastWeight ? `• Son: ${lastWeight} kg` : ''}
+                                {meta?.name || ex.muscle} {lastWeight ? `• Son: ${lastWeight} ${isDur ? 'sn' : 'kg'}` : ''}
                               </div>
                             </div>
                           </div>

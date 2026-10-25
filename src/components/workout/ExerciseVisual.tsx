@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MuscleGroup } from '../../types/workout';
 import { muscleMetadata } from '../../data/muscleMetadata';
+import { defaultExercises } from '../../data/defaultExercises';
 import { FRONT_PATHS, BACK_PATHS } from '../../data/bodyMapPaths';
 
 export interface ExerciseVisualProps {
@@ -22,22 +23,49 @@ export interface ExerciseEquipmentBadge {
   subType?: string;
 }
 
-// Map of custom 3D anatomical figure renders
+// Map of custom 3D anatomical figure renders for all 43 exercises
 export const EXERCISE_IMAGE_MAP: Record<string, string> = {
+  // Göğüs (Chest)
   bench: '/exercises/bench.jpg',
   incline_bench: '/exercises/incline_bench.jpg',
+  dumbbell_fly: '/exercises/dumbbell_fly.jpg',
+  cable_crossover: '/exercises/cable_crossover.jpg',
+  pec_deck: '/exercises/pec_deck.jpg',
+  chest_dips: '/exercises/chest_dips.jpg',
+
+  // Sırt & Kanat (Back)
   latpull: '/exercises/latpull.jpg',
+  pullup: '/exercises/pullup.jpg',
   row: '/exercises/row.jpg',
+  barbell_row: '/exercises/barbell_row.jpg',
+  dumbbell_row: '/exercises/dumbbell_row.jpg',
   tbar_row: '/exercises/tbar_row.jpg',
+  straight_arm_pulldown: '/exercises/straight_arm_pulldown.jpg',
+
+  // Omuz (Shoulder)
   shoulder_press: '/exercises/shoulder_press.jpg',
   shoulder_fly: '/exercises/shoulder_fly.jpg',
+  rear_delt_fly: '/exercises/rear_delt_fly.jpg',
+  front_raise: '/exercises/front_raise.jpg',
   face_pull: '/exercises/face_pull.jpg',
+  shrug: '/exercises/shrug.jpg',
+
+  // Biceps & Triceps (Arms)
   biceps: '/exercises/biceps.jpg',
   hammer_curl: '/exercises/hammer_curl.jpg',
+  preacher_curl: '/exercises/preacher_curl.jpg',
+  incline_curl: '/exercises/incline_curl.jpg',
+  concentration_curl: '/exercises/concentration_curl.jpg',
   triceps: '/exercises/triceps.jpg',
   skull_crusher: '/exercises/skull_crusher.jpg',
+  overhead_triceps: '/exercises/overhead_triceps.jpg',
+
+  // Alt Vücut (Lower Body)
   squat: '/exercises/squat.jpg',
   leg_press: '/exercises/leg_press.jpg',
+  bulgarian_split_squat: '/exercises/bulgarian_split_squat.jpg',
+  lunges: '/exercises/lunges.jpg',
+  hack_squat: '/exercises/hack_squat.jpg',
   quad_ext: '/exercises/quad_ext.jpg',
   deadlift: '/exercises/deadlift.jpg',
   ham_ext: '/exercises/ham_ext.jpg',
@@ -45,8 +73,11 @@ export const EXERCISE_IMAGE_MAP: Record<string, string> = {
   adductor: '/exercises/adductor.jpg',
   abductor: '/exercises/abductor.jpg',
   calf_raise: '/exercises/calf_raise.jpg',
+
+  // Core & Karın
   cable_crunch: '/exercises/cable_crunch.jpg',
   hanging_leg_raise: '/exercises/hanging_leg_raise.jpg',
+  russian_twist: '/exercises/russian_twist.jpg',
   plank: '/exercises/plank.jpg'
 };
 
@@ -56,30 +87,66 @@ export const getExerciseEquipment = (exerciseId?: string, muscle?: MuscleGroup):
       return { icon: '🏋️', label: 'Barbell', subType: 'Düz Bench' };
     case 'incline_bench':
       return { icon: '🦾', label: 'Dumbbell', subType: '45° Eğimli' };
+    case 'dumbbell_fly':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Göğüs Açış' };
+    case 'cable_crossover':
+      return { icon: '⚡', label: 'Kablo', subType: 'Crossover' };
+    case 'pec_deck':
+      return { icon: '⚡', label: 'Makine', subType: 'Butterfly' };
+    case 'chest_dips':
+      return { icon: '🦾', label: 'Paralel Bar', subType: 'Alt Göğüs' };
     case 'latpull':
       return { icon: '⚡', label: 'Kablo', subType: 'Geniş Çekiş' };
+    case 'pullup':
+      return { icon: '🦾', label: 'Barfiks', subType: 'Vücut Ağırlığı' };
     case 'row':
       return { icon: '⚡', label: 'Kablo', subType: 'Oturarak Kürek' };
+    case 'barbell_row':
+      return { icon: '🏋️', label: 'Barbell', subType: 'Eğilerek Çekiş' };
+    case 'dumbbell_row':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Tek Kol Sırt' };
     case 'tbar_row':
       return { icon: '🏋️', label: 'T-Bar', subType: '45° Sırt' };
+    case 'straight_arm_pulldown':
+      return { icon: '⚡', label: 'Kablo', subType: 'Düz Kol Kanat' };
     case 'shoulder_press':
       return { icon: '🏋️', label: 'Barbell', subType: 'Baş Üstü' };
     case 'shoulder_fly':
       return { icon: '🦾', label: 'Dumbbell', subType: 'Yan Omuz' };
+    case 'rear_delt_fly':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Arka Omuz' };
+    case 'front_raise':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Ön Omuz' };
     case 'face_pull':
       return { icon: '⚡', label: 'Kablo', subType: 'Arka Omuz' };
+    case 'shrug':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Üst Trapez' };
     case 'biceps':
       return { icon: '🏋️', label: 'EZ-Bar', subType: 'Peak Curl' };
     case 'hammer_curl':
       return { icon: '🦾', label: 'Dumbbell', subType: 'Nötr Tutuş' };
+    case 'preacher_curl':
+      return { icon: '🏋️', label: 'Scott Bench', subType: 'İzole Biceps' };
+    case 'incline_curl':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Eğimli Sehpa' };
+    case 'concentration_curl':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Konsantre' };
     case 'triceps':
       return { icon: '⚡', label: 'Kablo', subType: 'Pushdown' };
     case 'skull_crusher':
       return { icon: '🏋️', label: 'EZ-Bar', subType: 'Alın Üstü' };
+    case 'overhead_triceps':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Baş Üstü Arka Kol' };
     case 'squat':
       return { icon: '🏋️', label: 'Barbell', subType: 'Squat Rack' };
     case 'leg_press':
       return { icon: '⚡', label: 'Makine', subType: '45° Kızak' };
+    case 'bulgarian_split_squat':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Tek Bacak' };
+    case 'lunges':
+      return { icon: '🦾', label: 'Dumbbell', subType: 'Adımlama' };
+    case 'hack_squat':
+      return { icon: '⚡', label: 'Makine', subType: 'Hack Kızak' };
     case 'quad_ext':
       return { icon: '⚡', label: 'Makine', subType: 'Ön Bacak' };
     case 'deadlift':
@@ -98,8 +165,10 @@ export const getExerciseEquipment = (exerciseId?: string, muscle?: MuscleGroup):
       return { icon: '⚡', label: 'Kablo', subType: 'Karın Büküş' };
     case 'hanging_leg_raise':
       return { icon: '🦾', label: 'Barfiks', subType: '90° L-Hang' };
+    case 'russian_twist':
+      return { icon: '⚡', label: 'Plaka', subType: 'Yan Karın' };
     case 'plank':
-      return { icon: '⚡', label: 'Zemin', subType: 'İzometrik' };
+      return { icon: '⏱️', label: 'Zemin', subType: 'Süreli İzometrik' };
     default:
       if (muscle === 'chest') return { icon: '🏋️', label: 'Göğüs' };
       if (muscle === 'back') return { icon: '⚡', label: 'Sırt' };
@@ -290,11 +359,16 @@ export const ExerciseVisual: React.FC<ExerciseVisualProps> = ({
     );
   }
 
-  // Fallback: Vector Anatomical Silhouette with Glowing Target Muscle
+  // Fallback: Vector Anatomical Silhouette with Glowing Target & Synergist Muscles
   const config = DEFAULT_CONFIGS[muscle] || DEFAULT_CONFIGS.chest;
   const pathSource = config.view === 'front' ? FRONT_PATHS : BACK_PATHS;
-  const primaryMuscles = config.primaryMuscles;
-  const secondaryMuscles = config.secondaryMuscles || [];
+  const exerciseDef = exerciseId ? defaultExercises.find(e => e.id === exerciseId) : undefined;
+  const primaryMuscles = exerciseDef?.muscles
+    ? exerciseDef.muscles.filter(m => m.role === 'primary').map(m => m.muscle)
+    : config.primaryMuscles;
+  const secondaryMuscles = exerciseDef?.muscles
+    ? exerciseDef.muscles.filter(m => m.role !== 'primary').map(m => m.muscle)
+    : (config.secondaryMuscles || []);
   const idPrefix = `hero-art-${exerciseId || muscle}`;
 
   return (

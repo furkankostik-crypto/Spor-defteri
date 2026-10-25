@@ -4,7 +4,7 @@ import { ExerciseVisual, getExerciseEquipment } from './ExerciseVisual';
 import { SetRow } from './SetRow';
 import { useWorkout } from '../../context/WorkoutContext';
 import { useBackButton } from '../../context/BackNavigationContext';
-import { getLastWorkoutSets, calculateExerciseLevelInfo } from '../../utils/calculations';
+import { getLastWorkoutSets, calculateExerciseLevelInfo, isDurationExercise, isSetValid, getSetDurationSeconds } from '../../utils/calculations';
 import { getExerciseOverloadSuggestion } from '../../utils/recommendationEngine';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { sounds } from '../../utils/audio';
@@ -90,6 +90,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
 
   if (!isOpen || !exercise) return null;
 
+  const isDuration = isDurationExercise(exercise);
+
   // Get current sets from draft or default 3 sets
   const currentSets = draft.exerciseSets[exercise.id] || [
     { id: '1', weight: 0, reps: 0 },
@@ -97,10 +99,12 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
     { id: '3', weight: 0, reps: 0 }
   ];
 
-  const activeSets = currentSets.filter(s => s.weight > 0);
-  const completedSets = currentSets.filter(s => s.completed && s.weight > 0);
+  const activeSets = currentSets.filter(s => isSetValid(s, isDuration));
+  const completedSets = currentSets.filter(s => s.completed && isSetValid(s, isDuration));
   const isExerciseFullyCompleted = currentSets.length > 0 && completedSets.length === currentSets.length;
-  const activeVolume = activeSets.reduce((sum, s) => sum + (s.weight * (s.reps || 5)), 0);
+  const activeVolume = isDuration
+    ? activeSets.reduce((sum, s) => sum + getSetDurationSeconds(s, true), 0)
+    : activeSets.reduce((sum, s) => sum + (s.weight * (s.reps || 5)), 0);
 
   // Previous performance and level info
   const lastPerformance = getLastWorkoutSets(exercise.id, workouts);
@@ -112,6 +116,23 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
   // Format previous workout sets into a clean summary
   const getPreviousWorkoutSummary = () => {
     if (!lastPerformance || !lastPerformance.weights.length) return null;
+    if (isDuration) {
+      const secsList = lastPerformance.reps.filter(r => r > 0);
+      if (secsList.length === 0) return null;
+      const firstS = secsList[0];
+      const allSame = secsList.every(s => s === firstS);
+      if (allSame) {
+        return {
+          text: `${secsList.length} Set × ${firstS} sn`,
+          subtext: '(süre)'
+        };
+      }
+      return {
+        text: secsList.map(s => `${s} sn`).join(' • '),
+        subtext: `(${secsList.length} set)`
+      };
+    }
+
     const weights = lastPerformance.weights;
     const reps = lastPerformance.reps;
     const firstW = weights[0];
@@ -149,6 +170,21 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
   const getSuggestionSummary = () => {
     if (!overloadSuggestion || !overloadSuggestion.suggestedSets || !overloadSuggestion.suggestedSets.length) return null;
     const sets = overloadSuggestion.suggestedSets;
+    if (isDuration) {
+      const firstR = sets[0].reps;
+      const allSameReps = sets.every(s => s.reps === firstR);
+      if (allSameReps) {
+        return {
+          text: `${sets.length} Set × ${firstR} sn`,
+          subtext: '(izometrik)'
+        };
+      }
+      return {
+        text: `${sets.map(s => `${s.reps}sn`).join(' / ')}`,
+        subtext: `(${sets.length} set)`
+      };
+    }
+
     const firstW = sets[0].weight;
     const firstR = sets[0].reps;
     const allSameWeight = sets.every(s => s.weight === firstW);
@@ -176,16 +212,21 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
 
   const suggestionSummary = getSuggestionSummary();
 
-  // Quick fill previous workout weights
+  // Quick fill previous workout weights / durations
   const handleCopyPreviousWeights = () => {
     if (!lastPerformance) return;
     sounds.playSuccess();
     
     // Clear and fill with last performance sets
     lastPerformance.weights.forEach((w, idx) => {
-      const rep = lastPerformance.reps[idx] || 5;
-      updateDraftSet(exercise.id, idx, 'weight', w);
-      updateDraftSet(exercise.id, idx, 'reps', rep);
+      const rep = lastPerformance.reps[idx] || (isDuration ? 45 : 5);
+      if (isDuration) {
+        updateDraftSet(exercise.id, idx, 'weight', 0);
+        updateDraftSet(exercise.id, idx, 'reps', rep);
+      } else {
+        updateDraftSet(exercise.id, idx, 'weight', w);
+        updateDraftSet(exercise.id, idx, 'reps', rep);
+      }
     });
   };
 
@@ -326,7 +367,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                   }}
                 >
                   <Star size={11} fill="var(--gold)" color="var(--gold)" />
-                  <span>PR: {exerciseLevelInfo.prWeight} kg</span>
+                  <span>PR: {exerciseLevelInfo.prWeight} {isDuration ? 'sn' : 'kg'}</span>
                 </span>
               )}
             </div>
@@ -684,7 +725,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                       textOverflow: 'ellipsis'
                     }}
                   >
-                    {overloadSuggestion.isPlateau ? 'Plato Deload' : (overloadSuggestion.type === 'increase_weight' ? 'Kilo Artışı' : overloadSuggestion.type === 'increase_reps' ? 'Tekrar Artışı' : 'Hedef Öneri')}
+                    {overloadSuggestion.isPlateau ? 'Plato Deload' : (overloadSuggestion.type === 'increase_weight' ? 'Kilo Artışı' : overloadSuggestion.type === 'increase_reps' ? (isDuration ? 'Süre Artışı' : 'Tekrar Artışı') : 'Hedef Öneri')}
                   </span>
                 </div>
 
@@ -852,7 +893,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                         color: '#ffffff'
                       }}
                     >
-                      Set #{sIdx + 1}: {s.weight} kg × {s.reps}
+                      Set #{sIdx + 1}: {isDuration ? `${s.reps} sn` : `${s.weight} kg × ${s.reps}`}
                     </span>
                   ))}
                 </div>
@@ -892,7 +933,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '32px 1fr 1fr 36px 30px',
+                gridTemplateColumns: isDuration ? '32px 1fr 36px 30px' : '32px 1fr 1fr 36px 30px',
                 gap: 7,
                 fontSize: 11,
                 fontWeight: 800,
@@ -904,8 +945,14 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               }}
             >
               <span>Set</span>
-              <span>Ağırlık</span>
-              <span>Tekrar</span>
+              {isDuration ? (
+                <span>Süre (Saniye)</span>
+              ) : (
+                <>
+                  <span>Ağırlık</span>
+                  <span>Tekrar</span>
+                </>
+              )}
               <span>Bitir</span>
               <span></span>
             </div>
@@ -919,6 +966,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                   setIndex={idx}
                   weight={set.weight}
                   reps={set.reps}
+                  isDuration={isDuration}
                   completed={Boolean(set.completed)}
                   onToggleCompleted={() => toggleDraftSetCompleted(exercise.id, idx)}
                   accentColor={meta.color}
@@ -1031,9 +1079,9 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               <Check size={18} strokeWidth={2.5} />
               <span>
                 {isExerciseFullyCompleted
-                  ? `✓ Tamamlandı (${completedSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} kg)`
+                  ? `✓ Tamamlandı (${completedSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} ${isDuration ? 'sn' : 'kg'})`
                   : activeSets.length > 0
-                  ? `✓ Hareketi Tamamla (${activeSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} kg)`
+                  ? `✓ Hareketi Tamamla (${activeSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} ${isDuration ? 'sn' : 'kg'})`
                   : 'Kapat'}
               </span>
             </button>

@@ -15,6 +15,7 @@ import {
   getSuggestedNextWorkout, 
   getExerciseOverloadSuggestion 
 } from '../utils/recommendationEngine';
+import { isDurationExercise } from '../utils/calculations';
 import { muscleMetadata } from '../data/muscleMetadata';
 
 export interface AIChatMessage {
@@ -103,17 +104,63 @@ ${keyLifts.map(l => `- ${l?.name}: 1RM ~${l?.estimated1RM} kg (${l?.ratio}x Vüc
 }
 
 /**
- * Biomechanical cues for key gym exercises
+ * Biomechanical cues for all 43 gym exercises
  */
 const exerciseBiomechanicalTips: Record<string, string> = {
+  // Göğüs (Chest)
   bench: 'Skapulanızı (kürek kemiklerinizi) geriye ve aşağıya kilitleyin. Ayak tabanlarıyla zeminden güç (leg drive) alın ve barı göğüs ucuna kontrollü indirip patlayıcı itin.',
-  squat: 'Nefesi diyaframa doldurup karın içi basınç (valsalva manevrası) oluşturun. Dizlerinizin ayak parmak uçlarınızı takip etmesini sağlayın, kalçayı geriye ve aşağıya kontrollü oturtun.',
-  deadlift: 'Bar kaval kemiklerine temas etmeli. Lat kaslarınızı sıkarak göğsü dik tutun. Yerden kaldırırken barı çekmek yerine yeri ayaklarınızla ittiğinizi hayal edin.',
-  shoulder_press: 'Core (karın/bel) ve glute kaslarınızı sıkın, omurgada aşırı bel çukurluğu (lordoz) yaratmayın. Barı kafanızın hemen üzerinden düz dikey bir hatla tavana doğru itin.',
+  incline_bench: 'Sehpa açısını 30-45 derece arasında tutun. Dirseklerinizi gövdeye ~45-60 derece açıyla indirerek üst göğüs (klavikular) liflerini maksimum gerilime sokun.',
+  dumbbell_fly: 'Dirseklerinizde hafif ve sabit bir bükülme (15-20 derece) koruyun; bir ağaca sarılıyormuş gibi geniş yay çizin ve omuz kapsülünü korumak için dambılları gövde hizasının aşırı altına indirmeyin.',
+  cable_crossover: 'Gövdenizi hafif öne eğin, kabloları göğüs hizasında birleştirirken ellerinizi birbirine yaklaştırıp iç göğüs liflerini 1 saniye sıkın.',
+  pec_deck: 'Omuzlarınızı geride ve aşağıda sabitleyin; kolları kapatırken dirseklerinizi hafif bükülü tutarak göğüs orta çizgisinde 1 saniye zirve kasılması (peak contraction) yapın.',
+  chest_dips: 'Göğüs odaklı aktivasyon için gövdenizi 20-30 derece öne eğin ve dirseklerin hafif dışa açılmasına izin vererek omuz hizasına kadar kontrollü inin.',
+
+  // Sırt & Kanat (Back)
   latpull: 'Gövdenizi arkaya aşırı savurmayın. Hareketi kollarla değil, dirsekleri yan ceplerinize doğru çekerek kanat (latissimus) kaslarıyla başlatın.',
-  row: 'Omurgayı nötr tutun (45-60 derece gövde açısı). Barı göbeğinize doğru çekerken omuzları düşürmeyin, tepe noktada sırt kaslarınızı 1 saniye sıkın.',
+  pullup: 'Hareketin alt noktasında omuzları kulaklardan uzaklaştırarak (aktif depresyon) başlayın, göğsünüzü bara yaklaştırarak tam hareket açıklığıyla çekilin.',
+  row: 'Omurgayı nötr tutun. Tutamağı göbeğinize doğru çekerken omuzları düşürmeyin, tepe noktada kürek kemiklerini birbirine yaklaştırıp 1 saniye sıkın.',
+  barbell_row: 'Kalçayı geriye iterek 45 derece gövde açısını koruyun, belinizi yuvarlamayın. Barı alt karın/göbek deliğine doğru çekip kürek kemiklerini birbirine kenetleyin.',
+  dumbbell_row: 'Destek eliniz ve dizinizle omurgayı yere paralel sabitleyin; dambılı düz yukarı değil, kalça cebinize doğru yay çizerek (J-eğrisi) çekin.',
+  tbar_row: 'Göğsünüzü dik, belinizi nötr tutun. Dirsekleri gövdeye yakın tutarak ağırlığı alt göğüs/üst karın hizasına çekin ve alt noktada kanatların esnemesine izin verin.',
+  straight_arm_pulldown: 'Dirseklerinizi çok hafif bükülü şekilde kilitleyin, gövdeyi hafif öne eğin ve barı uyluklarınıza kadar sadece kanat (lat) kaslarınızla yarım daire çizerek bastırın.',
+
+  // Omuz (Shoulder)
+  shoulder_press: 'Core (karın/bel) ve glute kaslarınızı sıkın, omurgada aşırı bel çukurluğu (lordoz) yaratmayın. Barı kafanızın hemen üzerinden düz dikey bir hatla tavana doğru itin.',
+  shoulder_fly: 'Kollarınızı tam yana değil, skapular düzlemde (yaklaşık 20-30 derece öne doğru) kaldırın. Serçe parmağınızı zorlayarak iç rotasyon yapmayın; dirsekleri bileklerden hafif yukarıda tutun.',
+  rear_delt_fly: 'Gövdenizi yere yakın eğin, kürek kemiklerinizi birbirine sıkıştırmadan kolları yanlara doğru açarak hareketi doğrudan arka omuz (posterior deltoid) liflerinde hissedin.',
+  front_raise: 'Gövdeden salınım almadan dambılları omuz/göz hizasına kadar kontrollü kaldırın ve negatif fazda (inişte) 2-3 saniye direnç gösterin.',
+  face_pull: 'Halatı alnınıza/göz hizanıza doğru çekerken dirsekleri yüksekte tutun ve tepe noktada dış rotasyon (duble biceps pozu gibi) yaparak arka omuz ile rotator manşeti sıkın.',
+  shrug: 'Omuzlarınızı geriye/öne yuvarlamayın; dambılları kulaklarınıza doğru dikey bir hat üzerinde çekip tepe noktada üst trapezleri 1-2 saniye kasılı tutun.',
+
+  // Biceps & Triceps (Arms)
   biceps: 'Dirseklerinizi gövdenizin yanında sabitleyin. Ağırlığı savurmadan (momentum kullanmadan) sadece ön kollarınızla kaldırın ve tepede 1 saniye pazuya odaklanın.',
-  triceps: 'Dirseklerin dışa açılmasına izin vermeyin. Hareketi sonuna kadar tamamlayarak triceps kas liflerinin en kısa pozisyonda kasılmasını sağlayın.'
+  hammer_curl: 'Avuç içleri birbirine bakacak şekilde nötr tutuşu koruyun. Bu açı brachialis ve brachioradialis kaslarını hedefleyerek kol kalınlığını artırır.',
+  preacher_curl: 'Koltuk altınızı Scott sehpasına tam yerleştirin; alt noktada biceps tendonunu korumak için dirseği %95 açıp ani kilitlemeden kaçının, tam kontrollü bükün.',
+  incline_curl: 'Başınızı ve omuzlarınızı eğimli sehpaya yaslayın, dirseklerinizi geride sabit tutarak biceps uzun başını (long head) maksimum esneme altında çalıştırın.',
+  concentration_curl: 'Dirseğinizi iç uyluğunuza sağlamca dayayın. Hareketin tepe noktasında serçe parmağınızı hafif dışa çevirerek (supinasyon) biceps tepe kasılmasını maksimize edin.',
+  triceps: 'Dirseklerin dışa açılmasına veya öne kaçmasına izin vermeyin. Hareketi sonuna kadar tamamlayarak triceps kas liflerinin en kısa pozisyonda kasılmasını sağlayın.',
+  skull_crusher: 'Barı tam alnınıza değil, başınızın hafif gerisine indirerek triceps uzun başında sürekli gerilim (constant tension) oluşturun; dirsekleri içeri doğru sabit tutun.',
+  overhead_triceps: 'Kolların baş üzerinde olması triceps uzun başını maksimum esnetir. Dirseklerinizi başınıza yakın tutarak ağırlığı ensenize kontrollü indirin ve tam kilitleyin.',
+
+  // Alt Vücut (Legs & Glutes)
+  squat: 'Nefesi diyaframa doldurup karın içi basınç (valsalva manevrası) oluşturun. Dizlerinizin ayak parmak uçlarınızı takip etmesini sağlayın, kalçayı geriye ve aşağıya kontrollü oturtun.',
+  leg_press: 'Belinizin ve kalçanızın koltuktan kalkmasına (butt wink) izin vermeyin. Ayaklarınızı tam kilitlemeden dizlerinizi göğse doğru kontrollü indirin.',
+  bulgarian_split_squat: 'Ön ayağınızı sağlam basın, gövdenizi hafif öne eğerek kalça ve ön bacak (quads) aktivasyonunu dengeleyin. Arka ayağınızı sadece denge için kullanın.',
+  lunges: 'Adımınızı atarken ön dizinizin içe çökmesine (valgus) izin vermeyin; ön topuğunuzdan güç alarak kontrollü bir şekilde başlangıç pozisyonuna yükselin.',
+  hack_squat: 'Sırtınızı ve kalçanızı pedlere tam yapıştırın. Ayakları platformun biraz daha alt kısmına yerleştirmek ön bacak (quadriceps) üzerindeki gerilimi maksimize eder.',
+  quad_ext: 'Koltuktan kalçanızı kaldırmayın. Bacakları tepe noktada tam uzatıp 1 saniye ön bacakları (quads) sıkarak bekleyin, ardından yavaşça indirin.',
+  deadlift: 'Bar kaval kemiklerine/uyluklara yakın kaymalı. Kalçayı geriye iterek (hip hinge) arka bacaklarda tam gerginlik hissedin, belinizi asla kamburlaştırmayın.',
+  ham_ext: 'Kalçanızın pedden kalkmasına izin vermeyin; pelvisi sehpaya bastırarak topuklarınızı kalçanıza doğru tam bükün ve arka bacakları tepe noktada sıkın.',
+  hip_thrust: 'Çenenizi göğsünüze yakın tutun ve bakışlarınızı karşıya sabitleyin. Tepe noktada belinizi değil, kalçanızı (posterior pelvic tilt) sıkarak tam kilitleme yapın.',
+  adductor: 'Hareketi savurarak değil, bacakları kapatırken iç uyluk kaslarınızı 1 saniye sıkarak ve açılış fazında kontrollü esneterek uygulayın.',
+  abductor: 'Gövdenizi hafif öne eğmek gluteus medius (yan/üst kalça) aktivasyonunu artırır. Dizleri dışa iterken tepe noktada 1 saniye bekleyin.',
+  calf_raise: 'Aşil tendonunun elastik sekmesini önlemek için en alt esneme noktasında 1-2 saniye duraklayın, ardından parmak ucunda maksimum yüksekliğe çıkıp sıkın.',
+
+  // Core & Karın
+  cable_crunch: 'Kalçanızı sabit tutun; ağırlığı kollarınızla çekmek yerine göğüs kafesinizi leğen kemiğinize doğru bükerek (spinal fleksiyon) karın kaslarınızla indirin.',
+  hanging_leg_raise: 'Sallanmayı önleyin. Sadece bacakları kaldırmak yerine leğen kemiğinizi (pelvis) yukarı doğru kıvırarak alt karın kaslarını doğrudan devreye sokun.',
+  russian_twist: 'Sadece kollarınızı sağa sola sallamayın; göğüs kafesinizi ve omuzlarınızı birlikte döndürerek yan karın (oblik) kaslarında tam rotasyon sağlayın.',
+  plank: 'Dirseklerinizi tam omuzlarınızın altına yerleştirin. Belinizin çukurlaşmasına izin vermeyin; kalça (glute) ve karın kaslarınızı maksimum sıkarak omurgayı düz bir çizgi halinde tutun.'
 };
 
 /**
@@ -183,30 +230,91 @@ ${nextWorkout.priorityMuscles.map(m => `- **${m.muscleName}**: ${m.daysSinceTrai
 3. Set aralarında minimum 2-3 dakika dinlenerek maksimal ATP yenilenmesi sağlayın.`;
   }
 
-  // 2. EGZERSİZ BAZLI SORGULAR (Bench Press, Squat, Deadlift vb.)
-  // Check if query matches an exercise name
+  // 2. EGZERSİZ BAZLI SORGULAR (Bench Press, Squat, Deadlift, Dumbbell Fly, Plank vb.)
+  // Check if query matches an exercise name or Turkish/English alias
+  const exerciseAliases: Record<string, string[]> = {
+    bench: ['bench', 'gogus pres'],
+    incline_bench: ['incline', 'ust gogus'],
+    dumbbell_fly: ['dumbbell fly', 'dumbel fly', 'dambil fly', 'gogus acis'],
+    cable_crossover: ['crossover', 'kablo sikistirma', 'cable cross'],
+    pec_deck: ['pec deck', 'kelebek', 'butterfly'],
+    chest_dips: ['dips', 'chest dips', 'paralel bar'],
+    latpull: ['lat pull', 'pulldown'],
+    pullup: ['pull up', 'pullup', 'barfiks'],
+    row: ['cable row', 'seated row', 'oturarak kurek'],
+    barbell_row: ['barbell row', 'bent over row', 'egilerek cekis'],
+    dumbbell_row: ['dumbbell row', 'dumbel row', 'tek kol sirt', 'tester'],
+    tbar_row: ['t bar', 'tbar'],
+    straight_arm_pulldown: ['straight arm', 'duz kol kanat', 'halat kanat'],
+    shoulder_press: ['ohp', 'shoulder press', 'omuz pres', 'military press'],
+    shoulder_fly: ['lateral raise', 'yan omuz', 'omuz acis'],
+    rear_delt_fly: ['rear delt', 'arka omuz acis', 'ters kelebek'],
+    front_raise: ['front raise', 'on omuz'],
+    face_pull: ['face pull', 'facepull'],
+    shrug: ['shrug', 'trapez'],
+    biceps: ['biceps curl', 'barbell curl', 'z bar curl'],
+    hammer_curl: ['hammer curl', 'cekic curl'],
+    preacher_curl: ['preacher curl', 'scott curl', 'sehpada biceps'],
+    incline_curl: ['incline curl', 'egimli curl'],
+    concentration_curl: ['concentration curl', 'konsantre curl'],
+    triceps: ['pushdown', 'triceps pushdown', 'ip arka kol'],
+    skull_crusher: ['skull crusher', 'alin press', 'fransiz press'],
+    overhead_triceps: ['overhead triceps', 'bas ustu arka kol'],
+    squat: ['barbell squat', 'back squat', 'squat'],
+    leg_press: ['leg press'],
+    bulgarian_split_squat: ['bulgarian', 'split squat', 'tek bacak squat'],
+    lunges: ['lunge', 'lunges', 'komando adimi'],
+    hack_squat: ['hack squat'],
+    quad_ext: ['leg extension', 'quad extension', 'on bacak makine'],
+    deadlift: ['deadlift', 'rdl', 'romanian'],
+    ham_ext: ['leg curl', 'hamstring curl', 'arka bacak makine'],
+    hip_thrust: ['hip thrust', 'kalca kopru'],
+    adductor: ['adductor', 'ic bacak'],
+    abductor: ['abductor', 'dis bacak'],
+    calf_raise: ['calf raise', 'parmak ucu'],
+    cable_crunch: ['cable crunch', 'kablo mekik'],
+    hanging_leg_raise: ['leg raise', 'asilarak karin'],
+    russian_twist: ['russian twist', 'rus donusu', 'oblik'],
+    plank: ['plank', 'izometrik karin']
+  };
+
   const matchedExercise = allExercises.find(ex => {
     const exNorm = normalizeTurkish(ex.name);
     const exIdNorm = normalizeTurkish(ex.id);
+    const aliases = exerciseAliases[ex.id] || [];
     return (
-      norm.includes(exNorm) || 
+      norm.includes(exNorm) ||
       norm.includes(exIdNorm) ||
-      (ex.id === 'bench' && (norm.includes('bench') || norm.includes('gogus pres'))) ||
-      (ex.id === 'squat' && norm.includes('squat')) ||
-      (ex.id === 'deadlift' && (norm.includes('deadlift') || norm.includes('rdl'))) ||
-      (ex.id === 'shoulder_press' && (norm.includes('ohp') || norm.includes('shoulder press') || norm.includes('omuz pres'))) ||
-      (ex.id === 'latpull' && (norm.includes('lat pull') || norm.includes('pulldown') || norm.includes('barfiks'))) ||
-      (ex.id === 'row' && (norm.includes('barbell row') || norm.includes('kurek') || norm.includes('dumble row'))) ||
-      (ex.id === 'biceps' && (norm.includes('biceps curl') || norm.includes('curl') || norm.includes('pazu')))
+      aliases.some(alias => norm.includes(alias))
     );
   });
 
   if (matchedExercise) {
+    const isDuration = isDurationExercise(matchedExercise);
     const best1RM = getBest1RMForExercise(matchedExercise.id, workouts);
     const strengthAnalysis = getExerciseStrengthAnalysis(matchedExercise, workouts, profile);
     const overload = getExerciseOverloadSuggestion(matchedExercise, workouts, profile);
     const plateau = detectExercisePlateau(matchedExercise.id, workouts);
     const bioTip = exerciseBiomechanicalTips[matchedExercise.id] || 'Hareketi tam hareket açıklığı (Full ROM) ve kontrollü negatif tempo (2-3 sn iniş) ile uygulayın.';
+
+    if (isDuration) {
+      return `### ⏱️ Egzersiz Analizi: **${matchedExercise.name}**
+
+**İzometrik Dayanıklılık Performansınız:**
+- 🏆 **En Uzun Tutuş Rekoru (PR):** **${strengthAnalysis.estimated1RM > 0 ? `${strengthAnalysis.estimated1RM} saniye` : 'Henüz kayıt yok'}**
+- 🎖️ **Dayanıklılık Seviyesi:** **${strengthAnalysis.tierTitle}** (Skor: ${strengthAnalysis.strengthScore}/100)
+${plateau.isPlateau ? `\n⚠️ **Plato Uyarısı:** Bu harekette son ${plateau.consecutiveCount} antrenmandır süre artışı durdu. RKC Plank (maksimum gerilim) varyasyonu önerilir.` : ''}
+
+---
+
+**🎯 Sıradaki Antrenman İçin Hedef:**
+- **${overload.title}**
+- ${overload.description}
+- **Önerilen Setler:** ${overload.suggestedSets.map((s, idx) => `Set ${idx + 1}: ${s.reps} sn`).join(' | ')}
+
+**💡 Biyomekanik Form İpucu:**
+${bioTip}`;
+    }
 
     return `### 🏋️ Egzersiz Analizi: **${matchedExercise.name}**
 

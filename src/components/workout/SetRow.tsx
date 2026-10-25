@@ -12,6 +12,7 @@ interface SetRowProps {
   onDelete: () => void;
   onChange: (field: 'weight' | 'reps', value: number) => void;
   accentColor?: string;
+  isDuration?: boolean;
 }
 
 export const SetRow: React.FC<SetRowProps> = ({
@@ -23,16 +24,21 @@ export const SetRow: React.FC<SetRowProps> = ({
   canDelete,
   onDelete,
   onChange,
-  accentColor = '#38bdf8'
+  accentColor = '#38bdf8',
+  isDuration = false
 }) => {
   const [weightFocused, setWeightFocused] = useState(false);
   const [repsFocused, setRepsFocused] = useState(false);
+
+  const gridColumns = isDuration
+    ? (onToggleCompleted ? '32px 1fr 36px 30px' : '38px 1fr 38px')
+    : (onToggleCompleted ? '32px 1fr 1fr 36px 30px' : '38px 1fr 1fr 38px');
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: onToggleCompleted ? '32px 1fr 1fr 36px 30px' : '38px 1fr 1fr 38px',
+        gridTemplateColumns: gridColumns,
         gap: 7,
         alignItems: 'center',
         background: completed ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.55)',
@@ -62,129 +68,237 @@ export const SetRow: React.FC<SetRowProps> = ({
         #{setIndex + 1}
       </div>
 
-      {/* Weight Input */}
-      <div style={{ position: 'relative' }}>
-        <input
-          type="number"
-          step="0.5"
-          min="0"
-          max="999"
-          value={weight === 0 ? '' : weight}
-          onChange={(e) => {
-            const val = e.target.value;
-            if (val === '') {
-              onChange('weight', 0);
-            } else {
-              const num = parseFloat(val);
-              onChange('weight', isNaN(num) ? 0 : Math.max(0, num));
-            }
-          }}
-          onFocus={(e) => {
-            setWeightFocused(true);
-            try {
-              e.target.select();
-            } catch {}
-          }}
-          onBlur={() => setWeightFocused(false)}
-          onClick={(e) => {
-            try {
-              (e.target as HTMLInputElement).select();
-            } catch {}
-          }}
-          placeholder="0"
-          className="form-input"
-          style={{
-            padding: '8px 28px 8px 10px',
-            textAlign: 'center',
-            fontWeight: 800,
-            fontSize: 15,
-            height: 42,
-            background: 'rgba(10, 16, 28, 0.85)',
-            borderColor: weightFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
-            boxShadow: weightFocused ? `0 0 0 3px ${accentColor}25` : 'none',
-            color: '#ffffff',
-            borderRadius: 'var(--radius-sm)',
-            transition: 'border-color 0.2s, box-shadow 0.2s'
-          }}
-        />
-        <span
-          style={{
-            position: 'absolute',
-            right: 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            fontSize: 11,
-            fontWeight: 700,
-            color: weightFocused ? accentColor : 'var(--text-dim)',
-            pointerEvents: 'none',
-            transition: 'color 0.2s'
-          }}
-        >
-          kg
-        </span>
-      </div>
+      {isDuration ? (
+        /* Duration Input (in seconds) with -15s / +15s quick buttons */
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => onChange('reps', Math.max(0, (reps || 0) - 15))}
+            style={{
+              height: 42,
+              padding: '0 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: 'var(--text-muted)',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+            title="15 Saniye Azalt"
+          >
+            -15s
+          </button>
 
-      {/* Reps Input */}
-      <div style={{ position: 'relative' }}>
-        <input
-          type="number"
-          step="1"
-          min="0"
-          max="99"
-          value={reps === 0 ? '' : reps}
-          onChange={(e) => {
-            const val = e.target.value;
-            if (val === '') {
-              onChange('reps', 0);
-            } else {
-              const num = parseInt(val, 10);
-              onChange('reps', isNaN(num) ? 0 : Math.max(0, num));
-            }
-          }}
-          onFocus={(e) => {
-            setRepsFocused(true);
-            try {
-              e.target.select();
-            } catch {}
-          }}
-          onBlur={() => setRepsFocused(false)}
-          onClick={(e) => {
-            try {
-              (e.target as HTMLInputElement).select();
-            } catch {}
-          }}
-          placeholder="0"
-          className="form-input"
-          style={{
-            padding: '8px 38px 8px 10px',
-            textAlign: 'center',
-            fontWeight: 800,
-            fontSize: 15,
-            height: 42,
-            background: 'rgba(10, 16, 28, 0.85)',
-            borderColor: repsFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
-            boxShadow: repsFocused ? `0 0 0 3px ${accentColor}25` : 'none',
-            color: '#ffffff',
-            borderRadius: 'var(--radius-sm)',
-            transition: 'border-color 0.2s, box-shadow 0.2s'
-          }}
-        />
-        <span
-          style={{
-            position: 'absolute',
-            right: 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            fontSize: 10,
-            fontWeight: 700,
-            color: repsFocused ? accentColor : 'var(--text-dim)',
-            pointerEvents: 'none',
-            transition: 'color 0.2s'
-          }}
-        >
-          tekrar
-        </span>
-      </div>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <input
+              type="number"
+              step="5"
+              min="0"
+              max="999"
+              value={reps === 0 ? '' : reps}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  onChange('reps', 0);
+                } else {
+                  const num = parseInt(val, 10);
+                  onChange('reps', isNaN(num) ? 0 : Math.max(0, num));
+                }
+              }}
+              onFocus={(e) => {
+                setRepsFocused(true);
+                try {
+                  e.target.select();
+                } catch {}
+              }}
+              onBlur={() => setRepsFocused(false)}
+              onClick={(e) => {
+                try {
+                  (e.target as HTMLInputElement).select();
+                } catch {}
+              }}
+              placeholder="0"
+              className="form-input"
+              style={{
+                padding: '8px 46px 8px 10px',
+                textAlign: 'center',
+                fontWeight: 800,
+                fontSize: 15,
+                height: 42,
+                background: 'rgba(10, 16, 28, 0.85)',
+                borderColor: repsFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
+                boxShadow: repsFocused ? `0 0 0 3px ${accentColor}25` : 'none',
+                color: '#ffffff',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
+              }}
+            />
+            <span
+              style={{
+                position: 'absolute',
+                right: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: 10.5,
+                fontWeight: 700,
+                color: repsFocused ? accentColor : 'var(--text-dim)',
+                pointerEvents: 'none',
+                transition: 'color 0.2s'
+              }}
+            >
+              saniye
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onChange('reps', Math.min(999, (reps || 0) + 15))}
+            style={{
+              height: 42,
+              padding: '0 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: 'var(--cyan)',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+            title="15 Saniye Ekle"
+          >
+            +15s
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Weight Input */}
+          <div style={{ position: 'relative' }}>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              max="999"
+              value={weight === 0 ? '' : weight}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  onChange('weight', 0);
+                } else {
+                  const num = parseFloat(val);
+                  onChange('weight', isNaN(num) ? 0 : Math.max(0, num));
+                }
+              }}
+              onFocus={(e) => {
+                setWeightFocused(true);
+                try {
+                  e.target.select();
+                } catch {}
+              }}
+              onBlur={() => setWeightFocused(false)}
+              onClick={(e) => {
+                try {
+                  (e.target as HTMLInputElement).select();
+                } catch {}
+              }}
+              placeholder="0"
+              className="form-input"
+              style={{
+                padding: '8px 28px 8px 10px',
+                textAlign: 'center',
+                fontWeight: 800,
+                fontSize: 15,
+                height: 42,
+                background: 'rgba(10, 16, 28, 0.85)',
+                borderColor: weightFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
+                boxShadow: weightFocused ? `0 0 0 3px ${accentColor}25` : 'none',
+                color: '#ffffff',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
+              }}
+            />
+            <span
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: 11,
+                fontWeight: 700,
+                color: weightFocused ? accentColor : 'var(--text-dim)',
+                pointerEvents: 'none',
+                transition: 'color 0.2s'
+              }}
+            >
+              kg
+            </span>
+          </div>
+
+          {/* Reps Input */}
+          <div style={{ position: 'relative' }}>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              max="99"
+              value={reps === 0 ? '' : reps}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  onChange('reps', 0);
+                } else {
+                  const num = parseInt(val, 10);
+                  onChange('reps', isNaN(num) ? 0 : Math.max(0, num));
+                }
+              }}
+              onFocus={(e) => {
+                setRepsFocused(true);
+                try {
+                  e.target.select();
+                } catch {}
+              }}
+              onBlur={() => setRepsFocused(false)}
+              onClick={(e) => {
+                try {
+                  (e.target as HTMLInputElement).select();
+                } catch {}
+              }}
+              placeholder="0"
+              className="form-input"
+              style={{
+                padding: '8px 38px 8px 10px',
+                textAlign: 'center',
+                fontWeight: 800,
+                fontSize: 15,
+                height: 42,
+                background: 'rgba(10, 16, 28, 0.85)',
+                borderColor: repsFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
+                boxShadow: repsFocused ? `0 0 0 3px ${accentColor}25` : 'none',
+                color: '#ffffff',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
+              }}
+            />
+            <span
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: 10,
+                fontWeight: 700,
+                color: repsFocused ? accentColor : 'var(--text-dim)',
+                pointerEvents: 'none',
+                transition: 'color 0.2s'
+              }}
+            >
+              tekrar
+            </span>
+          </div>
+        </>
+      )}
 
       {/* Complete Set Checkmark Toggle */}
       {onToggleCompleted && (

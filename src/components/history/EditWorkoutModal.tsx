@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Workout, SavedExercise } from '../../types/workout';
 import { useWorkout } from '../../context/WorkoutContext';
 import { useBackButton } from '../../context/BackNavigationContext';
+import { isDurationExercise, getSetDurationSeconds } from '../../utils/calculations';
 import { X, Trash2, Check } from 'lucide-react';
 
 interface EditWorkoutModalProps {
@@ -30,6 +31,12 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
   if (!isOpen || !workout) return null;
 
   const getSetReps = (ex: SavedExercise, setIndex: number): number => {
+    const isDur = isDurationExercise(ex.id);
+    if (isDur) {
+      const ds = ex.detailedSets?.[setIndex];
+      if (ds) return getSetDurationSeconds(ds, true) || 45;
+      return ex.sets[setIndex] || 45;
+    }
     return ex.detailedSets?.[setIndex]?.reps ?? 8;
   };
 
@@ -63,16 +70,22 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
     setExercises(prev => {
       const next = [...prev];
       const targetEx = { ...next[exIndex] };
+      const isDur = isDurationExercise(targetEx.id);
+      if (isDur) {
+        const nextSets = [...targetEx.sets];
+        nextSets[setIndex] = cleanReps;
+        targetEx.sets = nextSets;
+      }
       const detailed = targetEx.detailedSets
         ? [...targetEx.detailedSets]
-        : targetEx.sets.map((w, i) => ({ id: String(i + 1), weight: w, reps: 8 }));
+        : targetEx.sets.map((w, i) => ({ id: String(i + 1), weight: isDur ? 0 : w, reps: isDur ? w : 8 }));
 
       if (detailed[setIndex]) {
-        detailed[setIndex] = { ...detailed[setIndex], reps: cleanReps };
+        detailed[setIndex] = { ...detailed[setIndex], weight: isDur ? 0 : detailed[setIndex].weight, reps: cleanReps };
       } else {
         detailed[setIndex] = {
           id: String(setIndex + 1),
-          weight: targetEx.sets[setIndex] || 0,
+          weight: isDur ? 0 : (targetEx.sets[setIndex] || 0),
           reps: cleanReps
         };
       }
@@ -87,20 +100,21 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
     setExercises(prev => {
       const next = [...prev];
       const targetEx = { ...next[exIndex] };
-      const lastW = targetEx.sets.length > 0 ? targetEx.sets[targetEx.sets.length - 1] : 0;
+      const isDur = isDurationExercise(targetEx.id);
+      const lastW = targetEx.sets.length > 0 ? targetEx.sets[targetEx.sets.length - 1] : (isDur ? 45 : 0);
       const lastReps =
         targetEx.detailedSets && targetEx.detailedSets.length > 0
           ? targetEx.detailedSets[targetEx.detailedSets.length - 1].reps
-          : 8;
-      targetEx.sets = [...targetEx.sets, lastW];
+          : (isDur ? lastW : 8);
+      targetEx.sets = [...targetEx.sets, isDur ? lastReps : lastW];
 
       const detailed = targetEx.detailedSets
         ? [...targetEx.detailedSets]
-        : targetEx.sets.slice(0, -1).map((w, i) => ({ id: String(i + 1), weight: w, reps: 8 }));
+        : targetEx.sets.slice(0, -1).map((w, i) => ({ id: String(i + 1), weight: isDur ? 0 : w, reps: isDur ? w : 8 }));
 
       targetEx.detailedSets = [
         ...detailed,
-        { id: String(detailed.length + 1), weight: lastW, reps: lastReps }
+        { id: String(detailed.length + 1), weight: isDur ? 0 : lastW, reps: lastReps }
       ];
       next[exIndex] = targetEx;
       return next;
@@ -125,7 +139,13 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
     setExercises(prev => prev.filter((_, idx) => idx !== exIndex));
   };
 
-  const validExercises = exercises.filter(ex => ex.sets.some(w => w > 0));
+  const validExercises = exercises.filter(ex => {
+    const isDur = isDurationExercise(ex.id);
+    if (isDur) {
+      return ex.sets.some(w => w > 0) || (ex.detailedSets?.some(s => (s.reps || 0) > 0 || (s.weight || 0) > 0) ?? false);
+    }
+    return ex.sets.some(w => w > 0);
+  });
 
   const handleSave = () => {
     if (validExercises.length === 0) return;
@@ -196,42 +216,63 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {ex.sets.map((wgt, sIdx) => (
-                    <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-dim)', width: 22 }}>#{sIdx + 1}</span>
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={wgt}
-                        onChange={(e) => handleSetWeightChange(exIdx, sIdx, parseFloat(e.target.value) || 0)}
-                        className="form-input"
-                        style={{ width: 68, padding: '6px 4px', textAlign: 'center', fontSize: 13, height: 32 }}
-                        title="Ağırlık (kg)"
-                      />
-                      <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>kg ×</span>
-                      <input
-                        type="number"
-                        step="1"
-                        min="1"
-                        value={getSetReps(ex, sIdx)}
-                        onChange={(e) => handleSetRepsChange(exIdx, sIdx, parseInt(e.target.value, 10) || 1)}
-                        className="form-input"
-                        style={{ width: 52, padding: '6px 4px', textAlign: 'center', fontSize: 13, height: 32 }}
-                        title="Tekrar Sayısı"
-                      />
-                      <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>tkr</span>
-                      {ex.sets.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSet(exIdx, sIdx)}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0 4px', marginLeft: 'auto' }}
-                          title="Seti Sil"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {ex.sets.map((wgt, sIdx) => {
+                    const isDur = isDurationExercise(ex.id);
+                    return (
+                      <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-dim)', width: 22 }}>#{sIdx + 1}</span>
+                        {isDur ? (
+                          <>
+                            <input
+                              type="number"
+                              step="5"
+                              min="1"
+                              value={getSetReps(ex, sIdx)}
+                              onChange={(e) => handleSetRepsChange(exIdx, sIdx, parseInt(e.target.value, 10) || 1)}
+                              className="form-input"
+                              style={{ width: 92, padding: '6px 4px', textAlign: 'center', fontSize: 13, height: 32 }}
+                              title="Süre (Saniye)"
+                            />
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>saniye (sn)</span>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={wgt}
+                              onChange={(e) => handleSetWeightChange(exIdx, sIdx, parseFloat(e.target.value) || 0)}
+                              className="form-input"
+                              style={{ width: 68, padding: '6px 4px', textAlign: 'center', fontSize: 13, height: 32 }}
+                              title="Ağırlık (kg)"
+                            />
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>kg ×</span>
+                            <input
+                              type="number"
+                              step="1"
+                              min="1"
+                              value={getSetReps(ex, sIdx)}
+                              onChange={(e) => handleSetRepsChange(exIdx, sIdx, parseInt(e.target.value, 10) || 1)}
+                              className="form-input"
+                              style={{ width: 52, padding: '6px 4px', textAlign: 'center', fontSize: 13, height: 32 }}
+                              title="Tekrar Sayısı"
+                            />
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>tkr</span>
+                          </>
+                        )}
+                        {ex.sets.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSet(exIdx, sIdx)}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0 4px', marginLeft: 'auto' }}
+                            title="Seti Sil"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   <button
                     type="button"

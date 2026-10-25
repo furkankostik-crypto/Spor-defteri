@@ -1,4 +1,5 @@
 import { Workout, SavedExercise, ExerciseSet, SplitType } from '../types/workout';
+import { isDurationExercise, isSetValid, getSetDurationSeconds } from './calculations';
 
 /**
  * Merges two arrays of SavedExercise objects into one.
@@ -16,16 +17,19 @@ export function mergeSavedExerciseLists(
 
   // Helper to convert sets & detailedSets into clean sequential ExerciseSet array
   const normalizeSets = (ex: SavedExercise): ExerciseSet[] => {
+    const isDuration = isDurationExercise(ex.id);
     if (ex.detailedSets && ex.detailedSets.length > 0) {
-      return ex.detailedSets.filter(s => s && s.weight > 0);
+      return ex.detailedSets
+        .filter(s => isSetValid(s, isDuration))
+        .map(s => isDuration ? { ...s, weight: 0, reps: getSetDurationSeconds(s, true) } : s);
     }
     if (ex.sets && ex.sets.length > 0) {
       return ex.sets
         .filter(w => w > 0)
         .map((w, idx) => ({
           id: String(idx + 1),
-          weight: w,
-          reps: 5,
+          weight: isDuration ? 0 : w,
+          reps: isDuration ? w : 5,
           completed: true
         }));
     }
@@ -36,13 +40,14 @@ export function mergeSavedExerciseLists(
   existingList.forEach(ex => {
     if (!ex) return;
     const key = getKey(ex);
+    const isDuration = isDurationExercise(ex.id);
     const sets = normalizeSets(ex);
     if (sets.length > 0) {
       const clonedEx: SavedExercise = {
         id: ex.id,
         name: ex.name,
         detailedSets: sets.map((s, idx) => ({ ...s, id: String(idx + 1) })),
-        sets: sets.map(s => s.weight)
+        sets: sets.map(s => isDuration ? s.reps : s.weight)
       };
       if (ex.muscle) {
         clonedEx.muscle = ex.muscle;
@@ -56,6 +61,7 @@ export function mergeSavedExerciseLists(
   incomingList.forEach(ex => {
     if (!ex) return;
     const key = getKey(ex);
+    const isDuration = isDurationExercise(ex.id);
     const incomingSets = normalizeSets(ex);
     if (incomingSets.length === 0) return;
 
@@ -81,7 +87,7 @@ export function mergeSavedExerciseLists(
       }));
 
       existingEx.detailedSets = combinedSets;
-      existingEx.sets = combinedSets.map(s => s.weight);
+      existingEx.sets = combinedSets.map(s => isDuration ? s.reps : s.weight);
       if (!existingEx.muscle && ex.muscle) {
         existingEx.muscle = ex.muscle;
       }
@@ -90,7 +96,7 @@ export function mergeSavedExerciseLists(
         id: ex.id,
         name: ex.name,
         detailedSets: incomingSets.map((s, idx) => ({ ...s, id: String(idx + 1) })),
-        sets: incomingSets.map(s => s.weight)
+        sets: incomingSets.map(s => isDuration ? s.reps : s.weight)
       };
       if (ex.muscle) {
         newEx.muscle = ex.muscle;

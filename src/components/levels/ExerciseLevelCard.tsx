@@ -2,7 +2,7 @@ import React from 'react';
 import { ExerciseDefinition } from '../../types/workout';
 import { ExerciseVisual } from '../workout/ExerciseVisual';
 import { useWorkout } from '../../context/WorkoutContext';
-import { calculateExerciseLevelInfo } from '../../utils/calculations';
+import { calculateExerciseLevelInfo, isDurationExercise } from '../../utils/calculations';
 import { getExerciseStrengthAnalysis } from '../../utils/scientificCalculations';
 import { formatDisplayDate } from '../../utils/dateUtils';
 import { muscleMetadata } from '../../data/muscleMetadata';
@@ -14,6 +14,7 @@ interface ExerciseLevelCardProps {
 
 export const ExerciseLevelCard: React.FC<ExerciseLevelCardProps> = ({ exercise }) => {
   const { workouts, profile } = useWorkout();
+  const isDuration = isDurationExercise(exercise);
   const info = calculateExerciseLevelInfo(exercise, workouts);
   const strength = getExerciseStrengthAnalysis(exercise, workouts, profile);
 
@@ -139,11 +140,11 @@ export const ExerciseLevelCard: React.FC<ExerciseLevelCardProps> = ({ exercise }
         >
           <div>
             <div style={{ fontSize: 10, color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Tahmini 1RM (Tek Tekrar)
+              {isDuration ? 'En Uzun Tutuş Rekoru (PR)' : 'Tahmini 1RM (Tek Tekrar)'}
             </div>
             <div style={{ fontSize: 17, fontWeight: 900, color: '#ffffff', display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span>{strength.estimated1RM} kg</span>
-              {strength.bestSetWeight > 0 && (
+              <span>{strength.estimated1RM} {isDuration ? 'sn' : 'kg'}</span>
+              {!isDuration && strength.bestSetWeight > 0 && (
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
                   ({strength.bestSetWeight}kg × {strength.bestSetReps})
                 </span>
@@ -153,10 +154,18 @@ export const ExerciseLevelCard: React.FC<ExerciseLevelCardProps> = ({ exercise }
 
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 10, color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Kuvvet Oranı
+              {isDuration ? 'Dakika Karşılığı' : 'Kuvvet Oranı'}
             </div>
             <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--cyan)' }}>
-              {strength.bodyweightRatio}x <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>BW</span>
+              {isDuration ? (
+                <>
+                  {strength.bodyweightRatio} <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>dk</span>
+                </>
+              ) : (
+                <>
+                  {strength.bodyweightRatio}x <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>BW</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -167,7 +176,7 @@ export const ExerciseLevelCard: React.FC<ExerciseLevelCardProps> = ({ exercise }
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginBottom: 5 }}>
             <span style={{ color: 'var(--text-muted)' }}>
-              Hedef: <strong>{strength.nextTierTitle}</strong> ({strength.nextTierWeight} kg)
+              Hedef: <strong>{strength.nextTierTitle}</strong> ({strength.nextTierWeight} {isDuration ? 'sn' : 'kg'})
             </span>
             <span style={{ fontWeight: 800, color: strength.tierColor }}>
               %{strength.tierProgressPct}
@@ -199,7 +208,7 @@ export const ExerciseLevelCard: React.FC<ExerciseLevelCardProps> = ({ exercise }
         }}
       >
         <span>Oyun Lv: <strong style={{ color: 'var(--text-muted)' }}>{info.currentLevel}</strong> ({info.totalEXP.toLocaleString()} EXP)</span>
-        <span>Hacim: <strong style={{ color: 'var(--text-muted)' }}>{info.totalVolume.toLocaleString()} kg</strong></span>
+        <span>{isDuration ? 'Süre:' : 'Hacim:'} <strong style={{ color: 'var(--text-muted)' }}>{info.totalVolume.toLocaleString()} {isDuration ? 'sn' : 'kg'}</strong></span>
         <span>Set: <strong style={{ color: 'var(--text-muted)' }}>{info.totalSets}</strong></span>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { MuscleGroup, SplitType, ExerciseDefinition, ExerciseSet } from '../types/workout';
 import { muscleMetadata } from '../data/muscleMetadata';
+import { isDurationExercise, isSetValid } from './calculations';
 
 export interface MuscleTargetProgress {
   muscle: MuscleGroup;
@@ -84,7 +85,9 @@ export function calculateWorkoutSessionTarget(
   let totalCompletedSets = 0;
 
   Object.entries(draftExerciseSets).forEach(([exId, sets]) => {
-    const valid = sets.filter((s) => s.weight > 0);
+    const exDef = allExercises.find((e) => e.id === exId);
+    const isDuration = isDurationExercise(exDef || exId);
+    const valid = sets.filter((s) => isSetValid(s, isDuration));
     if (valid.length > 0) {
       exerciseValidSetsCount[exId] = valid.length;
       totalCompletedSets += valid.length;

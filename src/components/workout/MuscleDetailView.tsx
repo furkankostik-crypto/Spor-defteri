@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 import { getSuggestedNextWorkout } from '../../utils/recommendationEngine';
-import { getLastWorkoutSets } from '../../utils/calculations';
+import { getLastWorkoutSets, isDurationExercise, isSetValid } from '../../utils/calculations';
 
 interface MuscleDetailViewProps {
   muscle: MuscleGroup;
@@ -40,9 +40,14 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
   const handleExerciseClick = (exercise: ExerciseDefinition) => {
     sounds.playPop();
     if (!draft.exerciseSets[exercise.id]) {
+      const isDur = isDurationExercise(exercise);
       const lastPerf = getLastWorkoutSets(exercise.id, workouts);
-      const lastWeight = lastPerf && lastPerf.weights.length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : 0;
-      addExerciseToDraft(exercise.id, lastWeight, 8);
+      const lastVal = lastPerf
+        ? (isDur
+            ? (lastPerf.reps.filter(r => r > 0).length > 0 ? Math.max(...lastPerf.reps.filter(r => r > 0)) : 45)
+            : (lastPerf.weights.filter(w => w > 0).length > 0 ? Math.max(...lastPerf.weights.filter(w => w > 0)) : 0))
+        : (isDur ? 45 : 0);
+      addExerciseToDraft(exercise.id, isDur ? 0 : lastVal, isDur ? lastVal : 8);
       showToast({
         title: '✓ Seansa Eklendi',
         description: `${exercise.name} antrenmanınıza eklendi.`,
@@ -74,12 +79,15 @@ export const MuscleDetailView: React.FC<MuscleDetailViewProps> = ({
     const act = ex.muscles?.find((m) => m.muscle === muscle);
     const isTarget = ex.muscle === muscle || Boolean(act);
     if (isTarget) {
+      const isDur = isDurationExercise(ex);
       const ratio = act ? act.ratio : (ex.muscle === muscle ? 1.0 : 0);
       const sets = draft.exerciseSets[ex.id] || [];
       sets.forEach((s) => {
-        if (s.weight > 0) {
+        if (isSetValid(s, isDur)) {
           muscleSetsCount += act ? (act.role === 'primary' ? 1 : 0.5) : 1;
-          muscleVolume += Math.round(s.weight * (s.reps || 5) * ratio);
+          if (!isDur) {
+            muscleVolume += Math.round(s.weight * (s.reps || 5) * ratio);
+          }
         }
       });
     }

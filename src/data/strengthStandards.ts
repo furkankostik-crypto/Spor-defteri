@@ -70,19 +70,51 @@ export const exerciseStandards: Record<string, ExerciseStandardMultipliers> = {
     male: { beginner: 0.50, novice: 0.70, intermediate: 0.95, advanced: 1.25, elite: 1.55 },
     female: { beginner: 0.30, novice: 0.45, intermediate: 0.60, advanced: 0.80, elite: 1.05 }
   },
+  dumbbell_fly: {
+    male: { beginner: 0.16, novice: 0.25, intermediate: 0.36, advanced: 0.48, elite: 0.62 },
+    female: { beginner: 0.10, novice: 0.16, intermediate: 0.24, advanced: 0.32, elite: 0.42 }
+  },
+  cable_crossover: {
+    male: { beginner: 0.20, novice: 0.32, intermediate: 0.45, advanced: 0.60, elite: 0.78 },
+    female: { beginner: 0.12, novice: 0.20, intermediate: 0.30, advanced: 0.40, elite: 0.52 }
+  },
+  pec_deck: {
+    male: { beginner: 0.45, novice: 0.65, intermediate: 0.90, advanced: 1.20, elite: 1.50 },
+    female: { beginner: 0.28, novice: 0.42, intermediate: 0.60, advanced: 0.80, elite: 1.00 }
+  },
+  chest_dips: {
+    male: { beginner: 0.15, novice: 0.30, intermediate: 0.50, advanced: 0.75, elite: 1.00 },
+    female: { beginner: 0.08, novice: 0.18, intermediate: 0.30, advanced: 0.45, elite: 0.65 }
+  },
 
   // Sırt (Back)
   latpull: {
     male: { beginner: 0.55, novice: 0.75, intermediate: 1.00, advanced: 1.30, elite: 1.55 },
     female: { beginner: 0.35, novice: 0.50, intermediate: 0.70, advanced: 0.90, elite: 1.10 }
   },
+  pullup: {
+    male: { beginner: 0.15, novice: 0.30, intermediate: 0.50, advanced: 0.75, elite: 1.00 },
+    female: { beginner: 0.08, novice: 0.18, intermediate: 0.30, advanced: 0.45, elite: 0.65 }
+  },
   row: {
     male: { beginner: 0.50, novice: 0.70, intermediate: 0.95, advanced: 1.25, elite: 1.50 },
     female: { beginner: 0.30, novice: 0.45, intermediate: 0.65, advanced: 0.85, elite: 1.05 }
   },
+  barbell_row: {
+    male: { beginner: 0.55, novice: 0.78, intermediate: 1.05, advanced: 1.35, elite: 1.65 },
+    female: { beginner: 0.35, novice: 0.50, intermediate: 0.70, advanced: 0.92, elite: 1.15 }
+  },
+  dumbbell_row: {
+    male: { beginner: 0.25, novice: 0.38, intermediate: 0.52, advanced: 0.70, elite: 0.90 },
+    female: { beginner: 0.16, novice: 0.25, intermediate: 0.35, advanced: 0.48, elite: 0.62 }
+  },
   tbar_row: {
     male: { beginner: 0.55, novice: 0.75, intermediate: 1.00, advanced: 1.30, elite: 1.55 },
     female: { beginner: 0.35, novice: 0.50, intermediate: 0.70, advanced: 0.90, elite: 1.10 }
+  },
+  straight_arm_pulldown: {
+    male: { beginner: 0.25, novice: 0.38, intermediate: 0.52, advanced: 0.70, elite: 0.88 },
+    female: { beginner: 0.16, novice: 0.24, intermediate: 0.35, advanced: 0.48, elite: 0.60 }
   },
 
   // Omuz (Shoulder)
@@ -94,9 +126,21 @@ export const exerciseStandards: Record<string, ExerciseStandardMultipliers> = {
     male: { beginner: 0.12, novice: 0.18, intermediate: 0.25, advanced: 0.34, elite: 0.44 },
     female: { beginner: 0.08, novice: 0.12, intermediate: 0.17, advanced: 0.23, elite: 0.30 }
   },
+  rear_delt_fly: {
+    male: { beginner: 0.12, novice: 0.18, intermediate: 0.25, advanced: 0.34, elite: 0.44 },
+    female: { beginner: 0.08, novice: 0.12, intermediate: 0.17, advanced: 0.23, elite: 0.30 }
+  },
+  front_raise: {
+    male: { beginner: 0.12, novice: 0.18, intermediate: 0.26, advanced: 0.35, elite: 0.45 },
+    female: { beginner: 0.08, novice: 0.12, intermediate: 0.18, advanced: 0.24, elite: 0.32 }
+  },
   face_pull: {
     male: { beginner: 0.25, novice: 0.38, intermediate: 0.52, advanced: 0.70, elite: 0.90 },
     female: { beginner: 0.15, novice: 0.25, intermediate: 0.35, advanced: 0.48, elite: 0.62 }
+  },
+  shrug: {
+    male: { beginner: 0.35, novice: 0.55, intermediate: 0.80, advanced: 1.10, elite: 1.40 },
+    female: { beginner: 0.22, novice: 0.35, intermediate: 0.50, advanced: 0.70, elite: 0.90 }
   },
 
   // Biceps
@@ -108,6 +152,18 @@ export const exerciseStandards: Record<string, ExerciseStandardMultipliers> = {
     male: { beginner: 0.22, novice: 0.35, intermediate: 0.48, advanced: 0.65, elite: 0.80 },
     female: { beginner: 0.14, novice: 0.22, intermediate: 0.32, advanced: 0.42, elite: 0.55 }
   },
+  preacher_curl: {
+    male: { beginner: 0.22, novice: 0.34, intermediate: 0.48, advanced: 0.65, elite: 0.82 },
+    female: { beginner: 0.14, novice: 0.22, intermediate: 0.30, advanced: 0.42, elite: 0.54 }
+  },
+  incline_curl: {
+    male: { beginner: 0.16, novice: 0.24, intermediate: 0.34, advanced: 0.46, elite: 0.58 },
+    female: { beginner: 0.10, novice: 0.15, intermediate: 0.22, advanced: 0.30, elite: 0.38 }
+  },
+  concentration_curl: {
+    male: { beginner: 0.16, novice: 0.24, intermediate: 0.34, advanced: 0.46, elite: 0.58 },
+    female: { beginner: 0.10, novice: 0.15, intermediate: 0.22, advanced: 0.30, elite: 0.38 }
+  },
 
   // Triceps
   triceps: {
@@ -117,6 +173,10 @@ export const exerciseStandards: Record<string, ExerciseStandardMultipliers> = {
   skull_crusher: {
     male: { beginner: 0.25, novice: 0.38, intermediate: 0.52, advanced: 0.70, elite: 0.88 },
     female: { beginner: 0.15, novice: 0.24, intermediate: 0.34, advanced: 0.46, elite: 0.60 }
+  },
+  overhead_triceps: {
+    male: { beginner: 0.22, novice: 0.34, intermediate: 0.48, advanced: 0.65, elite: 0.82 },
+    female: { beginner: 0.14, novice: 0.22, intermediate: 0.30, advanced: 0.42, elite: 0.54 }
   },
 
   // Alt Vücut (Legs & Glutes)
@@ -131,6 +191,18 @@ export const exerciseStandards: Record<string, ExerciseStandardMultipliers> = {
   leg_press: {
     male: { beginner: 1.40, novice: 2.10, intermediate: 2.80, advanced: 3.80, elite: 4.60 },
     female: { beginner: 0.90, novice: 1.40, intermediate: 1.90, advanced: 2.60, elite: 3.20 }
+  },
+  bulgarian_split_squat: {
+    male: { beginner: 0.25, novice: 0.40, intermediate: 0.58, advanced: 0.78, elite: 1.00 },
+    female: { beginner: 0.18, novice: 0.28, intermediate: 0.42, advanced: 0.58, elite: 0.75 }
+  },
+  lunges: {
+    male: { beginner: 0.25, novice: 0.40, intermediate: 0.58, advanced: 0.78, elite: 1.00 },
+    female: { beginner: 0.18, novice: 0.28, intermediate: 0.42, advanced: 0.58, elite: 0.75 }
+  },
+  hack_squat: {
+    male: { beginner: 0.95, novice: 1.45, intermediate: 1.95, advanced: 2.60, elite: 3.20 },
+    female: { beginner: 0.65, novice: 1.00, intermediate: 1.35, advanced: 1.80, elite: 2.25 }
   },
   quad_ext: {
     male: { beginner: 0.40, novice: 0.60, intermediate: 0.85, advanced: 1.15, elite: 1.40 },
@@ -161,6 +233,14 @@ export const exerciseStandards: Record<string, ExerciseStandardMultipliers> = {
   cable_crunch: {
     male: { beginner: 0.35, novice: 0.50, intermediate: 0.70, advanced: 0.95, elite: 1.15 },
     female: { beginner: 0.22, novice: 0.33, intermediate: 0.46, advanced: 0.62, elite: 0.78 }
+  },
+  hanging_leg_raise: {
+    male: { beginner: 0.10, novice: 0.20, intermediate: 0.35, advanced: 0.50, elite: 0.70 },
+    female: { beginner: 0.06, novice: 0.14, intermediate: 0.24, advanced: 0.35, elite: 0.50 }
+  },
+  russian_twist: {
+    male: { beginner: 0.12, novice: 0.20, intermediate: 0.32, advanced: 0.45, elite: 0.60 },
+    female: { beginner: 0.08, novice: 0.14, intermediate: 0.22, advanced: 0.32, elite: 0.44 }
   }
 };
 
@@ -169,6 +249,28 @@ export const defaultFallbackStandard: ExerciseStandardMultipliers = {
   male: { beginner: 0.45, novice: 0.65, intermediate: 0.90, advanced: 1.20, elite: 1.50 },
   female: { beginner: 0.28, novice: 0.42, intermediate: 0.60, advanced: 0.80, elite: 1.00 }
 };
+
+export const durationStandards: Record<string, Record<StrengthTier, number>> = {
+  plank: {
+    beginner: 30,
+    novice: 60,
+    intermediate: 120,
+    advanced: 180,
+    elite: 300
+  }
+};
+
+export const defaultDurationStandard: Record<StrengthTier, number> = {
+  beginner: 30,
+  novice: 60,
+  intermediate: 120,
+  advanced: 180,
+  elite: 300
+};
+
+export function getDurationStandards(exerciseId: string): Record<StrengthTier, number> {
+  return durationStandards[exerciseId] || defaultDurationStandard;
+}
 
 export function getExerciseStandards(exerciseId: string): ExerciseStandardMultipliers {
   return exerciseStandards[exerciseId] || defaultFallbackStandard;
