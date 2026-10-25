@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
+import { useBackButton } from '../../context/BackNavigationContext';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { sounds } from '../../utils/audio';
@@ -33,6 +34,15 @@ export const WorkoutCartDrawer: React.FC<WorkoutCartDrawerProps> = ({
   } = useWorkout();
 
   const [isOpen, setIsOpen] = useState(false);
+
+  useBackButton(
+    isOpen,
+    () => {
+      sounds.playPop();
+      setIsOpen(false);
+    },
+    70
+  );
 
   const sessionTarget = React.useMemo(() => {
     return calculateWorkoutSessionTarget(

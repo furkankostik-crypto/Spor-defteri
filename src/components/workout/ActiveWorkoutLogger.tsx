@@ -162,9 +162,23 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
     isAddModalOpen,
     () => {
       sounds.playPop();
-      setIsAddModalOpen(false);
+      if (addModalTab !== 'map') {
+        setAddModalTab('map');
+      } else {
+        setIsAddModalOpen(false);
+        setModalSelectedMuscle(null);
+      }
     },
     60
+  );
+
+  useBackButton(
+    totalExercises === 0 && !isAddModalOpen && builderTab !== 'map',
+    () => {
+      sounds.playPop();
+      setBuilderTab('map');
+    },
+    55
   );
 
   const splitLabel = useMemo(() => {

@@ -23,6 +23,7 @@ import {
 } from '../../utils/dateUtils';
 import { Workout } from '../../types/workout';
 import { sounds } from '../../utils/audio';
+import { useBackButton } from '../../context/BackNavigationContext';
 
 export type TimeFilterMode = 'all' | 'year' | 'month' | 'week' | 'day';
 
@@ -51,6 +52,15 @@ export const TimeFilterSelector: React.FC<TimeFilterSelectorProps> = ({
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const todayStr = getTodayLocalDate();
   const availableYears = getAvailableYears(workouts);
+
+  useBackButton(
+    showMonthPicker,
+    () => {
+      sounds.playPop();
+      setShowMonthPicker(false);
+    },
+    65
+  );
 
   // Helper to switch mode
   const handleModeChange = (mode: TimeFilterMode) => {

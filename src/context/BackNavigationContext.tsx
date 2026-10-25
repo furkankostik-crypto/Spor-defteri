@@ -22,7 +22,6 @@ interface BackNavigationContextType {
 const BackNavigationContext = createContext<BackNavigationContextType | undefined>(undefined);
 
 let nextHandlerId = 1;
-const MAX_GUARD_DEPTH = 25;
 
 export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const {
@@ -48,40 +47,38 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
   const isBackNavigatingTabRef = useRef(false);
   const isExitingRef = useRef(false);
   const handlersRef = useRef<BackHandlerEntry[]>([]);
-  const lastGesturePushTimeRef = useRef<number>(0);
+  const isRestoringSentinelRef = useRef(false);
+  const lastBackActionTimeRef = useRef<number>(0);
 
   /**
-   * IMPORTANT CHROMIUM HISTORY INTERVENTION RULE:
-   * Never call `history.pushState` on mount, in `useEffect`, or inside `popstate`!
-   * Calling `pushState` without an active user gesture causes Chromium to mark
-   * the current NavigationEntry with `should_skip_on_back_forward_ui = true`,
-   * which makes the browser skip all entries and close the app on the next back press.
-   *
-   * Instead, ONLY call `pushState` synchronously inside real user gesture events
-   * (`click`, `touchend`, `keydown`), at most once per gesture.
+   * SINGLE SENTINEL GUARD ARCHITECTURE (Chromium History Manipulation Compliant):
+   * - Never spam 25+ history entries (which triggers Chromium's history intervention).
+   * - Instead, maintain exactly ONE root entry (`__spor_root: true`) and ONE active
+   *   sentinel guard entry (`__spor_guard: true`) ahead of it.
+   * - Ensure the guard entry is armed synchronously during any real user interaction
+   *   (`pointerdown`, `touchstart`, `click`, `keydown`) whenever we are not already on it.
+   * - When the user presses the hardware/gesture Back button, the browser steps from
+   *   `__spor_guard` back to `__spor_root`. We run our in-app back handler and immediately
+   *   call `window.history.forward()` (or re-arm) to step right back onto `__spor_guard`!
+   *   This recycles the existing user-activated history entry infinitely so the app never closes.
    */
-  const pushGuardOnUserGesture = useCallback(() => {
-    if (isExitingRef.current) return;
-
-    const now = Date.now();
-    if (now - lastGesturePushTimeRef.current < 180) {
-      return;
-    }
+  const armSentinelGuardOnGesture = useCallback(() => {
+    if (isExitingRef.current || isRestoringSentinelRef.current) return;
 
     try {
       const currentState = window.history.state;
-      const currentDepth = typeof currentState?.depth === 'number' ? currentState.depth : 0;
 
-      if (!currentState || (!currentState.__spor_root && !currentState.__spor_active)) {
-        window.history.replaceState({ __spor_root: true, depth: 0 }, '');
-        window.history.pushState({ __spor_active: true, depth: 1 }, '');
-        lastGesturePushTimeRef.current = now;
-      } else if (currentDepth < MAX_GUARD_DEPTH) {
-        window.history.pushState({ __spor_active: true, depth: currentDepth + 1 }, '');
-        lastGesturePushTimeRef.current = now;
+      // Already sitting on the active guard entry -> nothing to push!
+      if (currentState && currentState.__spor_guard) {
+        return;
       }
+
+      // Mark current entry as root and push the single sentinel guard entry
+      const baseState = currentState && typeof currentState === 'object' ? currentState : {};
+      window.history.replaceState({ ...baseState, __spor_root: true, __spor_guard: false }, '');
+      window.history.pushState({ __spor_guard: true, depth: 1 }, '');
     } catch {
-      // Ignore History API errors
+      // Ignore History API errors in restricted environments
     }
   }, []);
 
@@ -114,39 +111,15 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     }
   }, [activeTab]);
 
-  // On mount: ONLY tag the initial root entry with replaceState (never pushState without gesture)
-  // On real user gestures (click / touchend / keydown in capture phase): push 1 non-skippable guard entry
-  useEffect(() => {
-    try {
-      const currentState = window.history.state;
-      if (!currentState || (!currentState.__spor_root && !currentState.__spor_active)) {
-        window.history.replaceState({ __spor_root: true, depth: 0 }, '');
-      }
-    } catch {
-      // Ignore
-    }
-
-    const handleUserGesture = () => {
-      if (isExitingRef.current) {
-        isExitingRef.current = false;
-      }
-      pushGuardOnUserGesture();
-    };
-
-    // Capture phase ensures we receive every tap/click even if a child calls stopPropagation()
-    window.addEventListener('click', handleUserGesture, { capture: true, passive: true });
-    window.addEventListener('touchend', handleUserGesture, { capture: true, passive: true });
-    window.addEventListener('keydown', handleUserGesture, { capture: true, passive: true });
-
-    return () => {
-      window.removeEventListener('click', handleUserGesture, { capture: true });
-      window.removeEventListener('touchend', handleUserGesture, { capture: true });
-      window.removeEventListener('keydown', handleUserGesture, { capture: true });
-    };
-  }, [pushGuardOnUserGesture]);
-
   // Core back button decision pipeline
   const handleBackNavigation = useCallback((): boolean => {
+    const now = Date.now();
+    // Guard against duplicate back events within 60ms (e.g. Navigation API + popstate)
+    if (now - lastBackActionTimeRef.current < 60) {
+      return true;
+    }
+    lastBackActionTimeRef.current = now;
+
     // 1. If Exit Confirmation Modal is ALREADY open, DO NOT close the app or dismiss the modal!
     // Keep the modal on screen and pulse it so the user must explicitly choose on screen.
     if (isExitModalOpen) {
@@ -218,7 +191,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       return true;
     }
 
-    // 6. No tabs or modals left to go back to -> Show Exit Confirmation Modal!
+    // 6. No tabs or modals left to go back to -> Show Exit Confirmation Modal (Option A)!
     sounds.playPop();
     setIsExitModalOpen(true);
     return true;
@@ -237,13 +210,55 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     setActiveTab
   ]);
 
-  // Listen to browser / hardware back button (popstate)
+  // Keep latest ref to handleBackNavigation for event listeners
+  const handleBackNavigationRef = useRef(handleBackNavigation);
+  handleBackNavigationRef.current = handleBackNavigation;
+
+  // Setup initial root state & user gesture listeners to arm the sentinel guard
+  useEffect(() => {
+    try {
+      const currentState = window.history.state;
+      if (!currentState || (!currentState.__spor_root && !currentState.__spor_guard)) {
+        window.history.replaceState({ __spor_root: true, __spor_guard: false }, '');
+      }
+    } catch {
+      // Ignore
+    }
+
+    const handleUserGesture = () => {
+      if (isExitingRef.current) return;
+      armSentinelGuardOnGesture();
+    };
+
+    // Capture phase on pointerdown/touchstart/click/keydown ensures the guard is armed
+    // on the very first touch before the user can even press the back button.
+    window.addEventListener('pointerdown', handleUserGesture, { capture: true, passive: true });
+    window.addEventListener('touchstart', handleUserGesture, { capture: true, passive: true });
+    window.addEventListener('click', handleUserGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', handleUserGesture, { capture: true, passive: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleUserGesture, { capture: true });
+      window.removeEventListener('touchstart', handleUserGesture, { capture: true });
+      window.removeEventListener('click', handleUserGesture, { capture: true });
+      window.removeEventListener('keydown', handleUserGesture, { capture: true });
+    };
+  }, [armSentinelGuardOnGesture]);
+
+  // Listen to browser / hardware back button (`popstate` + Android WebView `backbutton`)
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
+      // 1. If we are programmatic-restoring the sentinel via `history.forward()`, ignore this popstate
+      if (isRestoringSentinelRef.current) {
+        isRestoringSentinelRef.current = false;
+        return;
+      }
+
+      const state = event.state;
+
+      // 2. If user explicitly clicked "Evet, Uygulamadan Çık", keep unwinding history to exit
       if (isExitingRef.current) {
-        // User explicitly confirmed exit on screen: keep stepping back past all app entries
-        const state = event.state;
-        if (state && (state.__spor_active || state.__spor_root)) {
+        if (state && (state.__spor_guard || state.__spor_root)) {
           try {
             window.close();
           } catch {}
@@ -252,14 +267,45 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
         return;
       }
 
-      // Run in-app back navigation or show exit confirmation modal
-      // NOTE: Do NOT call history.pushState here inside popstate!
-      handleBackNavigation();
+      // 3. If popstate landed on the guard itself (e.g. forward movement), do nothing
+      if (state && state.__spor_guard) {
+        return;
+      }
+
+      // 4. User pressed hardware/gesture Back button and stepped off `__spor_guard` onto `__spor_root`!
+      // Run in-app back navigation (close modal / switch tab / open ExitConfirmModal)
+      handleBackNavigationRef.current();
+
+      // 5. Immediately step forward back onto our existing user-activated `__spor_guard` entry!
+      // Because `history.forward()` traverses to an already-existing entry created during a real user
+      // gesture, Chromium never marks it as skippable and the back button trap never runs out!
+      try {
+        isRestoringSentinelRef.current = true;
+        window.history.forward();
+        // Safety fallback reset in case forward() is a no-op
+        setTimeout(() => {
+          isRestoringSentinelRef.current = false;
+        }, 120);
+      } catch {
+        isRestoringSentinelRef.current = false;
+      }
+    };
+
+    // Support native/hybrid Android WebView `backbutton` event if present
+    const onNativeBackButton = (e: Event) => {
+      if (isExitingRef.current) return;
+      e.preventDefault();
+      handleBackNavigationRef.current();
     };
 
     window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, [handleBackNavigation]);
+    document.addEventListener('backbutton', onNativeBackButton, false);
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      document.removeEventListener('backbutton', onNativeBackButton, false);
+    };
+  }, []);
 
   const openExitModal = useCallback(() => {
     sounds.playPop();
@@ -270,12 +316,13 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     sounds.playPop();
     isExitingRef.current = false;
     setIsExitModalOpen(false);
-    pushGuardOnUserGesture();
-  }, [pushGuardOnUserGesture]);
+    armSentinelGuardOnGesture();
+  }, [armSentinelGuardOnGesture]);
 
   const confirmExit = useCallback(() => {
     sounds.playPop();
     isExitingRef.current = true;
+    isRestoringSentinelRef.current = false;
     setIsExitModalOpen(false);
 
     // 1. Attempt native/PWA window close
@@ -286,17 +333,10 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       window.close();
     } catch {}
 
-    // 2. Unwind browser history stack past our app entries
+    // 2. Unwind browser history stack past our root & guard entries
     try {
-      const currentDepth = typeof window.history.state?.depth === 'number' ? window.history.state.depth : 1;
-      const stepsBack = currentDepth + 1;
-      if (window.history.length > stepsBack) {
-        window.history.go(-stepsBack);
-      } else if (currentDepth > 0) {
-        window.history.go(-currentDepth);
-      } else {
-        window.history.back();
-      }
+      const stepsBack = window.history.state?.__spor_guard ? 2 : 1;
+      window.history.go(-stepsBack);
     } catch {
       window.history.back();
     }
