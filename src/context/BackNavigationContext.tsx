@@ -32,6 +32,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     setIsWorkoutMinimized,
     isProfileModalOpen,
     setIsProfileModalOpen,
+    showToast
   } = useWorkout();
 
   const { isAuthModalOpen, setIsAuthModalOpen } = useAuth();
@@ -46,21 +47,73 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
   const handlersRef = useRef<BackHandlerEntry[]>([]);
   const isRestoringSentinelRef = useRef(false);
   const lastBackActionTimeRef = useRef<number>(0);
+  const closeWatcherRef = useRef<any>(null);
 
   /**
-   * SINGLE SENTINEL GUARD ARCHITECTURE (Chromium History Manipulation Compliant):
-   * - Never spam 25+ history entries (which triggers Chromium's history intervention).
-   * - Instead, maintain exactly ONE root entry (`__spor_root: true`) and ONE active
-   *   sentinel guard entry (`__spor_guard: true`) ahead of it.
-   * - Ensure the guard entry is armed synchronously during any real user interaction
-   *   (`pointerdown`, `touchstart`, `click`, `keydown`) whenever we are not already on it.
-   * - When the user presses the hardware/gesture Back button, the browser steps from
-   *   `__spor_guard` back to `__spor_root`. We run our in-app back handler and immediately
-   *   call `window.history.forward()` (or re-arm) to step right back onto `__spor_guard`!
-   *   This recycles the existing user-activated history entry infinitely so the app never closes.
+   * HYBRID CLOSEWATCHER + SENTINEL GUARD ARCHITECTURE:
+   *
+   * 1. Why did the app close immediately on launch when pressing Back without touching anything?
+   *    Chromium's History Manipulation Intervention marks `history.pushState()` calls made on mount
+   *    (without user activation) as skippable (`should_skip_on_back_forward_ui = true`).
+   *    However, Chromium's `CloseWatcher` API explicitly allows ONE free close watcher to be
+   *    created WITHOUT user activation on page load! When the user opens the app and immediately
+   *    presses Back without touching the screen, `CloseWatcher.onclose` intercepts it before
+   *    browser history is unwound, allowing us to show the Exit Confirmation Modal!
+   *
+   * 2. Once the user touches the screen (`pointerdown`, `touchstart`, `click`, `keydown`),
+   *    we both re-arm `CloseWatcher` (which gets fresh user activation) AND maintain a single
+   *    user-activated history sentinel (`__spor_guard: true`) ahead of `__spor_root: true`
+   *    for browsers that don't support `CloseWatcher` (iOS Safari / Firefox / older WebViews).
    */
-  const armSentinelGuard = useCallback(() => {
+  const destroyCloseWatcher = useCallback(() => {
+    if (closeWatcherRef.current) {
+      try {
+        closeWatcherRef.current.onclose = null;
+        closeWatcherRef.current.oncancel = null;
+        closeWatcherRef.current.destroy?.();
+      } catch {
+        // Ignore
+      }
+      closeWatcherRef.current = null;
+    }
+  }, []);
+
+  const armCloseWatcher = useCallback(() => {
+    if (isExitingRef.current) return;
+    const CloseWatcherClass = (window as any).CloseWatcher;
+    if (!CloseWatcherClass) return;
+
+    // Destroy existing watcher before creating a newly activated one
+    destroyCloseWatcher();
+
+    try {
+      const watcher = new CloseWatcherClass();
+      watcher.onclose = () => {
+        closeWatcherRef.current = null;
+        if (isExitingRef.current) return;
+        handleBackNavigationRef.current();
+        // Re-arm watcher for subsequent back presses if still inside app
+        if (!isExitingRef.current) {
+          armCloseWatcher();
+        }
+      };
+      closeWatcherRef.current = watcher;
+    } catch {
+      // Ignore if CloseWatcher is restricted
+    }
+  }, [destroyCloseWatcher]);
+
+  const armSentinelGuard = useCallback((hasUserGesture = false) => {
     if (isExitingRef.current || isRestoringSentinelRef.current) return;
+
+    // Always ensure CloseWatcher is armed (if supported, re-creating on gesture upgrades its activation)
+    if (hasUserGesture || !closeWatcherRef.current) {
+      armCloseWatcher();
+    }
+
+    // Only push history state when we have a user gesture (or if we're restoring after a gesture)
+    // Calling pushState without user gesture taints the history entry in Chromium!
+    if (!hasUserGesture) return;
 
     try {
       const currentState = window.history.state;
@@ -77,7 +130,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     } catch {
       // Ignore History API errors in restricted environments
     }
-  }, []);
+  }, [armCloseWatcher]);
 
   // Register custom back handler (higher priority runs first; LIFO for equal priority)
   const registerBackHandler = useCallback((handler: () => boolean, priority = 50) => {
@@ -206,37 +259,43 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Setup initial root state & user gesture listeners to arm the sentinel guard
   useEffect(() => {
+    // 1. On initial mount (NO user gesture yet):
+    //    - NEVER call history.pushState() here! Calling pushState without user activation
+    //      causes Chromium's History Manipulation Intervention to mark the initial entry as
+    //      skippable (`should_skip_on_back_forward_ui = true`).
+    //    - Only use history.replaceState() to tag the root entry cleanly.
+    //    - Arm CloseWatcher (Chromium allows 1 free CloseWatcher without user activation!).
     try {
       const currentState = window.history.state;
       if (!currentState || (!currentState.__spor_root && !currentState.__spor_guard)) {
         window.history.replaceState({ __spor_root: true, __spor_guard: false }, '');
-        window.history.pushState({ __spor_guard: true, depth: 1 }, '');
-      } else if (!currentState.__spor_guard) {
-        window.history.pushState({ __spor_guard: true, depth: 1 }, '');
       }
     } catch {
       // Ignore
     }
 
+    armCloseWatcher();
+
     const handleUserGesture = () => {
       if (isExitingRef.current) return;
-      armSentinelGuard();
+      armSentinelGuard(true);
     };
 
     // Capture phase on pointerdown/touchstart/click/keydown ensures the guard is armed
-    // on the very first touch before the user can even press the back button.
+    // synchronously on the very first touch.
     window.addEventListener('pointerdown', handleUserGesture, { capture: true, passive: true });
     window.addEventListener('touchstart', handleUserGesture, { capture: true, passive: true });
     window.addEventListener('click', handleUserGesture, { capture: true, passive: true });
     window.addEventListener('keydown', handleUserGesture, { capture: true, passive: true });
 
     return () => {
+      destroyCloseWatcher();
       window.removeEventListener('pointerdown', handleUserGesture, { capture: true });
       window.removeEventListener('touchstart', handleUserGesture, { capture: true });
       window.removeEventListener('click', handleUserGesture, { capture: true });
       window.removeEventListener('keydown', handleUserGesture, { capture: true });
     };
-  }, [armSentinelGuard]);
+  }, [armCloseWatcher, armSentinelGuard, destroyCloseWatcher]);
 
   // Listen to browser / hardware back button (`popstate` + Android WebView `backbutton`)
   useEffect(() => {
@@ -269,20 +328,18 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       // Run in-app back navigation (close modal / switch tab / open ExitConfirmModal)
       handleBackNavigationRef.current();
 
-      // 5. Ensure sentinel guard is continuously active so subsequent back presses are always caught
+      // 5. Immediately step forward back onto our existing user-activated `__spor_guard` entry!
+      // Because `history.forward()` traverses to an already-existing entry created during a real user
+      // gesture, Chromium never marks it as skippable and the back button trap never runs out!
       try {
         isRestoringSentinelRef.current = true;
         window.history.forward();
-        // Safety fallback: if forward() was a no-op or didn't land on guard, re-arm
+        // Safety fallback reset in case forward() is a no-op
         setTimeout(() => {
           isRestoringSentinelRef.current = false;
-          if (!window.history.state?.__spor_guard) {
-            armSentinelGuard();
-          }
-        }, 100);
+        }, 120);
       } catch {
         isRestoringSentinelRef.current = false;
-        armSentinelGuard();
       }
     };
 
@@ -311,7 +368,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     sounds.playPop();
     isExitingRef.current = false;
     setIsExitModalOpen(false);
-    armSentinelGuard();
+    armSentinelGuard(true);
   }, [armSentinelGuard]);
 
   const confirmExit = useCallback(() => {
@@ -319,6 +376,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     isExitingRef.current = true;
     isRestoringSentinelRef.current = false;
     setIsExitModalOpen(false);
+    destroyCloseWatcher();
 
     // 1. Attempt native/PWA window close
     try {
@@ -328,7 +386,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       window.close();
     } catch {}
 
-    // 2. Unwind browser history stack past our root & guard entries
+    // 2. Unwind browser history stack past our root & guard entries (never navigate to about:blank!)
     try {
       const stepsBack = window.history.state?.__spor_guard ? 2 : 1;
       window.history.go(-stepsBack);
@@ -336,13 +394,17 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       window.history.back();
     }
 
-    // 3. Fallback: navigate away immediately so user doesn't have to press home/back button again!
+    // 3. Fallback for standalone PWAs / mobile browsers where OS requires final back/home gesture at root index
     setTimeout(() => {
-      try {
-        window.location.replace('about:blank');
-      } catch {}
-    }, 120);
-  }, []);
+      if (document.visibilityState === 'visible') {
+        showToast({
+          title: 'Çıkış Hazır',
+          description: 'Uygulamadan çıkmak için telefonunuzun geri veya ana ekran tuşuna dokunun.',
+          type: 'info'
+        });
+      }
+    }, 280);
+  }, [destroyCloseWatcher, showToast]);
 
   return (
     <BackNavigationContext.Provider
