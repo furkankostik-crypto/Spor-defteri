@@ -1,6 +1,5 @@
 import React from 'react';
 import { usePwaInstall } from '../../context/PwaInstallContext';
-import { useWorkout } from '../../context/WorkoutContext';
 import { 
   Download, 
   Smartphone, 
@@ -17,197 +16,17 @@ export const InstallPrompt: React.FC = () => {
   const { 
     isInstalled, 
     isIOS, 
-    showBanner, 
     showModal, 
     setShowModal, 
-    promptInstall, 
-    dismissBanner 
+    promptInstall
   } = usePwaInstall();
-
-  const { isLoggingWorkout } = useWorkout();
 
   // Zaten PWA modunda çalışıyorsa hiçbir şey gösterme
   if (isInstalled) return null;
 
   return (
     <>
-      {/* 1. YÜKLEME BANNERI / BİLDİRİMİ (Alt Kayan Kart) */}
-      {showBanner && !showModal && (
-        <aside 
-          aria-label="Uygulama yükleme bildirimi"
-          style={{
-            position: 'fixed',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            bottom: isLoggingWorkout 
-              ? 'calc(16px + var(--safe-bottom))' 
-              : 'calc(74px + var(--safe-bottom))',
-            width: 'calc(100% - 24px)',
-            maxWidth: '430px',
-            zIndex: 990,
-            background: 'linear-gradient(135deg, rgba(18, 24, 38, 0.96) 0%, rgba(26, 35, 54, 0.94) 100%)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 71, 87, 0.35)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '12px 14px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 71, 87, 0.18)',
-            animation: 'toastSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Logo / İkon */}
-            <div 
-              style={{ 
-                position: 'relative', 
-                width: 46, 
-                height: 46, 
-                borderRadius: '12px', 
-                overflow: 'hidden',
-                flexShrink: 0,
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                background: '#0b0f17',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-              }}
-            >
-              <img 
-                src="/icon-192.png" 
-                alt="Spor Defterim" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={(e) => {
-                  // Fallback icon
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-              <span 
-                style={{
-                  position: 'absolute',
-                  top: -2,
-                  right: -2,
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  background: 'var(--muscle-emerald)',
-                  boxShadow: '0 0 8px var(--muscle-emerald)'
-                }} 
-              />
-            </div>
-
-            {/* Metinler */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                <span 
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    color: 'var(--accent)',
-                    background: 'var(--accent-soft)',
-                    padding: '2px 6px',
-                    borderRadius: 4
-                  }}
-                >
-                  PWA
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>
-                  Uygulamayı Yükle
-                </span>
-              </div>
-              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.35, margin: 0 }}>
-                Ana ekrana ekle; internetsiz çalışsın, tam ekran açılsın!
-              </p>
-            </div>
-
-            {/* Kapatma Butonu */}
-            <button
-              onClick={dismissBanner}
-              aria-label="Kapat"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-dim)',
-                cursor: 'pointer',
-                padding: 4,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '6px',
-                transition: 'color 0.2s'
-              }}
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* Özellik Rozetleri & Aksiyon Butonları */}
-          <div 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between', 
-              marginTop: 10,
-              paddingTop: 8,
-              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-              gap: 8
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--muscle-emerald)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
-                <WifiOff size={12} /> Çevrimdışı
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
-                <Zap size={12} /> Hızlı
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button
-                onClick={dismissBanner}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-dim)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '5px 8px'
-                }}
-              >
-                Daha Sonra
-              </button>
-              <button
-                onClick={promptInstall}
-                style={{
-                  background: 'linear-gradient(135deg, var(--accent) 0%, #e03141 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '6px 14px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  boxShadow: '0 4px 12px rgba(255, 71, 87, 0.35)',
-                  transition: 'transform 0.15s'
-                }}
-                onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.96)')}
-                onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-              >
-                <Download size={14} />
-                <span>Hemen Yükle</span>
-              </button>
-            </div>
-          </div>
-        </aside>
-      )}
-
-      {/* 2. DETAYLI YÜKLEME / iOS REHBER MODALI */}
+      {/* DETAYLI YÜKLEME / iOS REHBER MODALI (Menüden "Uygulamayı Cihaza Yükle" seçildiğinde açılır) */}
       {showModal && (
         <div 
           className="modal-overlay" 

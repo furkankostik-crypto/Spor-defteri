@@ -9,7 +9,6 @@ import { Confetti } from './components/common/Confetti';
 import { AuthModal } from './components/auth/AuthModal';
 import { InstallPrompt } from './components/common/InstallPrompt';
 import { AthleteProfileModal } from './components/common/AthleteProfileModal';
-import { AICoachModal } from './components/stats/AICoachModal';
 import { ActiveWorkoutFloatingBanner } from './components/workout/ActiveWorkoutFloatingBanner';
 import { ExitConfirmModal } from './components/common/ExitConfirmModal';
 
@@ -55,7 +54,6 @@ export const App: React.FC = () => {
       <Confetti />
       <AuthModal />
       <AthleteProfileModal />
-      <AICoachModal />
       <ExitConfirmModal />
     </>
   );

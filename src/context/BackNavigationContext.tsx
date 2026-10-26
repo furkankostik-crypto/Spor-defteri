@@ -32,8 +32,6 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     setIsWorkoutMinimized,
     isProfileModalOpen,
     setIsProfileModalOpen,
-    isAICoachOpen,
-    setIsAICoachOpen,
   } = useWorkout();
 
   const { isAuthModalOpen, setIsAuthModalOpen } = useAuth();
@@ -154,12 +152,6 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       return true;
     }
 
-    if (isAICoachOpen) {
-      sounds.playPop();
-      setIsAICoachOpen(false);
-      return true;
-    }
-
     // 4. If user is in fullscreen workout logger, minimize to Workout Hub instead of closing app
     if (isLoggingWorkout && !isWorkoutMinimized && activeTab === 'workout') {
       sounds.playPop();
@@ -200,8 +192,6 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     setIsAuthModalOpen,
     isProfileModalOpen,
     setIsProfileModalOpen,
-    isAICoachOpen,
-    setIsAICoachOpen,
     isLoggingWorkout,
     isWorkoutMinimized,
     setIsWorkoutMinimized,

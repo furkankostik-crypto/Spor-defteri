@@ -87,8 +87,6 @@ interface WorkoutContextType {
   applyOverloadSuggestion: (exerciseId: string) => void;
   isProfileModalOpen: boolean;
   setIsProfileModalOpen: (open: boolean) => void;
-  isAICoachOpen: boolean;
-  setIsAICoachOpen: (open: boolean) => void;
   syncWithCloud: (options?: SyncCloudOptions) => Promise<void>;
 }
 
@@ -145,7 +143,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
-  const [isAICoachOpen, setIsAICoachOpen] = useState<boolean>(false);
 
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>(() => {
     try {
@@ -1086,8 +1083,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         applyOverloadSuggestion,
         isProfileModalOpen,
         setIsProfileModalOpen,
-        isAICoachOpen,
-        setIsAICoachOpen,
         syncWithCloud
       }}
     >

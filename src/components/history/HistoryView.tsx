@@ -236,17 +236,6 @@ export const HistoryView: React.FC = () => {
         )}
       </div>
 
-      {/* Floating Action Button (+ FAB) */}
-      <button
-        type="button"
-        onClick={handleStartNewWorkout}
-        className="fab-btn"
-        title="Yeni Antrenman Başlat"
-        aria-label="Yeni Antrenman Başlat"
-      >
-        <Plus size={22} strokeWidth={2.5} />
-      </button>
-
       {/* Edit Workout Modal */}
       <EditWorkoutModal
         workout={editingWorkout}

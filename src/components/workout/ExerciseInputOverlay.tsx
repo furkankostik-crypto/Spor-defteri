@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ExerciseDefinition } from '../../types/workout';
 import { ExerciseVisual, getExerciseEquipment } from './ExerciseVisual';
 import { SetRow } from './SetRow';
+import { WeightRepPicker } from './WeightRepPicker';
 import { useWorkout } from '../../context/WorkoutContext';
 import { useBackButton } from '../../context/BackNavigationContext';
 import { getLastWorkoutSets, calculateExerciseLevelInfo, isDurationExercise, isSetValid, getSetDurationSeconds } from '../../utils/calculations';
@@ -17,8 +18,6 @@ import {
   RotateCcw,
   Star,
   Target,
-  Zap,
-  ChevronDown,
   Maximize2
 } from 'lucide-react';
 
@@ -46,15 +45,19 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
     applyOverloadSuggestion
   } = useWorkout();
 
-  // Progressive overload card collapsed state (default: closed)
-  const [isOverloadOpen, setIsOverloadOpen] = useState(false);
   // Fullscreen image preview lightbox state
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
+  // Smart Weight & Rep Picker state
+  const [activePicker, setActivePicker] = useState<{
+    setIndex: number;
+    field: 'weight' | 'reps';
+  } | null>(null);
+
   // Reset collapsible state when exercise changes or modal reopens
   useEffect(() => {
-    setIsOverloadOpen(false);
     setIsImageModalOpen(false);
+    setActivePicker(null);
   }, [exercise?.id, isOpen]);
 
   // Handle phone back button
@@ -64,6 +67,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
       sounds.playPop();
       if (isImageModalOpen) {
         setIsImageModalOpen(false);
+      } else if (activePicker) {
+        setActivePicker(null);
       } else {
         onClose();
       }
@@ -77,6 +82,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
       if (e.key === 'Escape' && isOpen) {
         if (isImageModalOpen) {
           setIsImageModalOpen(false);
+        } else if (activePicker) {
+          setActivePicker(null);
         } else {
           onClose();
         }
@@ -86,7 +93,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, isImageModalOpen]);
+  }, [isOpen, onClose, isImageModalOpen, activePicker]);
 
   if (!isOpen || !exercise) return null;
 
@@ -261,18 +268,19 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           maxHeight: 'calc(100dvh - 28px - var(--safe-top) - var(--safe-bottom))'
         }}
       >
-        {/* 1. HERO SHOWCASE STAGE: Large 3D Figure Render with Floating Badges */}
+        {/* 1. HERO SHOWCASE STAGE: Large 3D Figure Render with Floating Badges (Compacts smoothly when Picker is open) */}
         <div 
           onClick={() => setIsImageModalOpen(true)}
           title="Görseli tam boyut incelemek için tıkla"
           style={{
             position: 'relative',
             width: '100%',
-            height: 'clamp(220px, 32vh, 285px)',
+            height: activePicker ? 'clamp(102px, 15vh, 128px)' : 'clamp(220px, 32vh, 285px)',
             background: 'radial-gradient(circle at 50% 35%, rgba(30, 41, 59, 0.7) 0%, rgba(10, 15, 26, 0.98) 100%)',
             overflow: 'hidden',
             flexShrink: 0,
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'height 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
         >
           <ExerciseVisual 
@@ -579,353 +587,89 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
             )}
           </div>
 
-          {/* 2 COMPACT CARDS SIDE-BY-SIDE: Previous Workout & Overload Suggestion */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, alignItems: 'stretch' }}>
-            {/* Card 1: Son İdman Performansı */}
+          {/* Compact Previous Workout Reference Bar */}
+          {prevSummary ? (
             <div
               style={{
                 background: 'rgba(15, 23, 42, 0.65)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
+                border: '1px solid rgba(56, 189, 248, 0.22)',
                 borderRadius: 'var(--radius-md)',
-                padding: '9px 11px',
+                padding: '9px 12px',
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: 6,
-                minWidth: 0
+                gap: 10
               }}
             >
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-                <History size={13} color="var(--cyan)" style={{ flexShrink: 0 }} />
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: 'var(--text-dim)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}
-                >
-                  Son İdman
-                </span>
-              </div>
-
-              {/* Content */}
-              <div style={{ minWidth: 0 }}>
-                {prevSummary ? (
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap', lineHeight: 1.25 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                <History size={14} color="var(--cyan)" style={{ flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    Son Kayıt
+                  </div>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
                     <span>{prevSummary.text}</span>
                     {prevSummary.subtext && (
-                      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)' }}>{prevSummary.subtext}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)' }}>{prevSummary.subtext}</span>
                     )}
                   </div>
-                ) : (
-                  <div style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--text-dim)', lineHeight: 1.25 }}>
-                    Geçmiş kayıt yok
-                  </div>
-                )}
+                </div>
               </div>
 
-              {/* Action Button */}
-              {lastPerformance ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                 <button
                   type="button"
                   onClick={handleCopyPreviousWeights}
                   style={{
-                    width: '100%',
                     background: 'rgba(56, 189, 248, 0.14)',
                     border: '1px solid rgba(56, 189, 248, 0.35)',
                     borderRadius: 'var(--radius-sm)',
                     color: 'var(--cyan)',
-                    fontSize: 10.5,
-                    fontWeight: 800,
-                    padding: '5px 6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
-                    transition: 'all 0.15s',
-                    boxShadow: '0 2px 6px rgba(56, 189, 248, 0.1)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}
-                  title="Geçmiş ağırlıkları bu seansa aktar"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)';
-                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.6)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.14)';
-                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)';
-                  }}
-                >
-                  <Sparkles size={11} style={{ flexShrink: 0 }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Öncekileri Kopyala</span>
-                </button>
-              ) : (
-                <div
-                  style={{
-                    height: 25,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: 'var(--text-dim)',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px dashed rgba(255, 255, 255, 0.07)'
-                  }}
-                >
-                  İlk Antrenman
-                </div>
-              )}
-            </div>
-
-            {/* Card 2: Hedef / Akıllı Öneri */}
-            <div
-              style={{
-                background: overloadSuggestion.isPlateau 
-                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(15, 23, 42, 0.8))'
-                  : 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 23, 42, 0.8))',
-                border: `1px solid ${overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
-                borderRadius: 'var(--radius-md)',
-                padding: '9px 11px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                gap: 6,
-                minWidth: 0,
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {/* Header with Title and Detay Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
-                  {overloadSuggestion.isPlateau ? (
-                    <Zap size={13} color="#ef4444" style={{ flexShrink: 0 }} />
-                  ) : (
-                    <Target size={13} color="var(--muscle-emerald)" style={{ flexShrink: 0 }} />
-                  )}
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      color: overloadSuggestion.isPlateau ? '#fca5a5' : '#86efac',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}
-                  >
-                    {overloadSuggestion.isPlateau ? 'Plato Deload' : (overloadSuggestion.type === 'increase_weight' ? 'Kilo Artışı' : overloadSuggestion.type === 'increase_reps' ? (isDuration ? 'Süre Artışı' : 'Tekrar Artışı') : 'Hedef Öneri')}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sounds.playPop();
-                    setIsOverloadOpen(prev => !prev);
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    padding: '0 2px',
-                    color: overloadSuggestion.isPlateau ? '#fca5a5' : 'var(--text-muted)',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    flexShrink: 0,
-                    opacity: 0.9
-                  }}
-                >
-                  <span>{isOverloadOpen ? 'Gizle' : 'Detay'}</span>
-                  <ChevronDown 
-                    size={12} 
-                    style={{ 
-                      transform: isOverloadOpen ? 'rotate(180deg)' : 'rotate(0deg)', 
-                      transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' 
-                    }} 
-                  />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div style={{ minWidth: 0 }}>
-                {suggestionSummary ? (
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap', lineHeight: 1.25 }}>
-                    <span>{suggestionSummary.text}</span>
-                    {suggestionSummary.subtext && (
-                      <span style={{ fontSize: 10, fontWeight: 600, color: overloadSuggestion.isPlateau ? '#fca5a5' : 'var(--text-muted)' }}>
-                        {suggestionSummary.subtext}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--text-dim)', lineHeight: 1.25 }}>
-                    {overloadSuggestion.title}
-                  </div>
-                )}
-              </div>
-
-              {/* Action Button: Visible even when card is collapsed! */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  applyOverloadSuggestion(exercise.id);
-                }}
-                style={{
-                  width: '100%',
-                  background: overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.22)',
-                  border: `1px solid ${overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)'}`,
-                  borderRadius: 'var(--radius-sm)',
-                  color: overloadSuggestion.isPlateau ? '#fca5a5' : '#34d399',
-                  fontSize: 10.5,
-                  fontWeight: 800,
-                  padding: '5px 6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 4,
-                  transition: 'all 0.15s',
-                  boxShadow: overloadSuggestion.isPlateau 
-                    ? '0 2px 6px rgba(239, 68, 68, 0.15)' 
-                    : '0 2px 6px rgba(16, 185, 129, 0.15)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}
-                title="Önerilen hedef ağırlık ve tekrarları kutulara aktar"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.35)';
-                  e.currentTarget.style.borderColor = overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.7)' : 'rgba(16, 185, 129, 0.7)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.22)';
-                  e.currentTarget.style.borderColor = overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)';
-                }}
-              >
-                <Target size={11} style={{ flexShrink: 0 }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Öneriyi Uygula</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Progressive Overload / Plateau Guidance Details (when open) */}
-          {isOverloadOpen && (
-            <div
-              style={{
-                background: overloadSuggestion.isPlateau 
-                  ? 'rgba(239, 68, 68, 0.08)' 
-                  : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(56, 189, 248, 0.06))',
-                border: `1px solid ${overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
-                borderRadius: 'var(--radius-md)',
-                padding: '10px 12px',
-                boxShadow: 'var(--shadow-sm)',
-                animation: 'fadeIn 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {overloadSuggestion.isPlateau ? (
-                    <Zap size={14} color="#ef4444" />
-                  ) : (
-                    <Target size={14} color="var(--muscle-emerald)" />
-                  )}
-                  <span style={{ fontSize: 12, fontWeight: 800, color: overloadSuggestion.isPlateau ? '#fca5a5' : '#ffffff' }}>
-                    {overloadSuggestion.title}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    sounds.playPop();
-                    setIsOverloadOpen(false);
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    padding: '2px 4px'
-                  }}
-                >
-                  Kapat
-                </button>
-              </div>
-
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                {overloadSuggestion.description}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {overloadSuggestion.suggestedSets.map((s, sIdx) => (
-                    <span
-                      key={sIdx}
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 800,
-                        padding: '3px 8px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(15, 23, 42, 0.85)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        color: '#ffffff'
-                      }}
-                    >
-                      Set #{sIdx + 1}: {isDuration ? `${s.reps} sn` : `${s.weight} kg × ${s.reps}`}
-                    </span>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    applyOverloadSuggestion(exercise.id);
-                  }}
-                  style={{
-                    background: overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)',
-                    border: `1px solid ${overloadSuggestion.isPlateau ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.5)'}`,
-                    borderRadius: 'var(--radius-sm)',
-                    color: overloadSuggestion.isPlateau ? '#fca5a5' : '#34d399',
                     fontSize: 11,
                     fontWeight: 800,
-                    padding: '4px 10px',
+                    padding: '6px 10px',
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 5,
-                    transition: 'all 0.15s',
-                    marginLeft: 'auto'
+                    gap: 4,
+                    transition: 'all 0.15s'
                   }}
+                  title="Geçmiş ağırlıkları kutulara doldur"
                 >
-                  <Target size={12} />
-                  <span>Öneriyi Uygula</span>
+                  <Sparkles size={11} />
+                  <span>Son İdmanı Doldur</span>
                 </button>
+
+                {suggestionSummary && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      applyOverloadSuggestion(exercise.id);
+                    }}
+                    style={{
+                      background: 'rgba(16, 189, 129, 0.14)',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: '#34d399',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: '6px 9px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      transition: 'all 0.15s'
+                    }}
+                    title={`Hedef öneri: ${suggestionSummary.text} ${suggestionSummary.subtext || ''}`}
+                  >
+                    <Target size={11} />
+                    <span>Hedef</span>
+                  </button>
+                )}
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Sets Table Section */}
           <div style={{ marginTop: 2 }}>
@@ -973,9 +717,27 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                   canDelete={currentSets.length > 1}
                   onDelete={() => {
                     sounds.playPop();
+                    if (activePicker) {
+                      if (activePicker.setIndex === idx) {
+                        setActivePicker(null);
+                      } else if (activePicker.setIndex > idx) {
+                        setActivePicker({
+                          setIndex: activePicker.setIndex - 1,
+                          field: activePicker.field
+                        });
+                      }
+                    }
                     removeDraftSet(exercise.id, idx);
                   }}
                   onChange={(field, value) => updateDraftSet(exercise.id, idx, field, value)}
+                  activePickerField={activePicker?.setIndex === idx ? activePicker.field : null}
+                  onSelectPickerField={(field) => {
+                    if (activePicker?.setIndex === idx && activePicker.field === field) {
+                      setActivePicker(null);
+                    } else {
+                      setActivePicker({ setIndex: idx, field });
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -985,7 +747,14 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               type="button"
               onClick={() => {
                 sounds.playPop();
+                const nextSetIdx = currentSets.length;
                 addDraftSet(exercise.id);
+                if (activePicker) {
+                  setActivePicker({
+                    setIndex: nextSetIdx,
+                    field: isDuration ? 'reps' : 'weight'
+                  });
+                }
               }}
               style={{
                 width: '100%',
@@ -1087,6 +856,53 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
             </button>
           </div>
         </div>
+
+        {/* 2.5 SMART WEIGHT & REP PICKER DOCKED PANEL */}
+        {activePicker && (() => {
+          const safeIdx = Math.min(activePicker.setIndex, Math.max(0, currentSets.length - 1));
+          const targetSet = currentSets[safeIdx] || { weight: 0, reps: 0 };
+          const lastW =
+            lastPerformance?.weights[safeIdx] ??
+            (lastPerformance?.weights.length ? lastPerformance.weights[lastPerformance.weights.length - 1] : undefined);
+          const lastR =
+            lastPerformance?.reps[safeIdx] ??
+            (lastPerformance?.reps.length ? lastPerformance.reps[lastPerformance.reps.length - 1] : undefined);
+          const sugSet =
+            overloadSuggestion?.suggestedSets?.[safeIdx] ??
+            (overloadSuggestion?.suggestedSets?.length
+              ? overloadSuggestion.suggestedSets[overloadSuggestion.suggestedSets.length - 1]
+              : undefined);
+
+          return (
+            <WeightRepPicker
+              exercise={exercise}
+              setIndex={safeIdx}
+              totalSets={currentSets.length}
+              activeField={isDuration ? 'reps' : activePicker.field}
+              weight={targetSet.weight}
+              reps={targetSet.reps}
+              isDuration={isDuration}
+              accentColor={meta.color}
+              bodyWeightKg={profile.bodyWeightKg}
+              lastWeight={lastW}
+              lastReps={lastR}
+              suggestedWeight={sugSet?.weight}
+              suggestedReps={sugSet?.reps}
+              prWeight={exerciseLevelInfo.prWeight > 0 ? exerciseLevelInfo.prWeight : undefined}
+              onChangeField={(f) => setActivePicker({ setIndex: safeIdx, field: f })}
+              onChangeSetIndex={(newIdx) =>
+                setActivePicker({ setIndex: newIdx, field: activePicker.field })
+              }
+              onUpdateValue={(field, value) => updateDraftSet(exercise.id, safeIdx, field, value)}
+              onApplyToAllSets={(field, value) => {
+                currentSets.forEach((_, idx) => {
+                  updateDraftSet(exercise.id, idx, field, value);
+                });
+              }}
+              onClose={() => setActivePicker(null)}
+            />
+          );
+        })()}
       </div>
 
       {/* 3. FULL RESOLUTION EXERCISE IMAGE LIGHTBOX MODAL */}

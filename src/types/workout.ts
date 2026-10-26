@@ -134,7 +134,6 @@ export interface AthleteProfile {
   bodyWeightKg: number;
   gender: Gender;
   age?: number;
-  geminiApiKey?: string;
   trainingGoal?: 'strength' | 'hypertrophy' | 'endurance';
 }
 

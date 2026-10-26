@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useWorkout } from '../../context/WorkoutContext';
-import { exportToJSON, exportToCSV } from '../../utils/backup';
 import { sounds } from '../../utils/audio';
 import { BackupModal } from '../common/BackupModal';
 import { 
@@ -11,18 +10,14 @@ import {
   CloudCheck, 
   RefreshCw, 
   Download, 
-  FileSpreadsheet, 
   Database, 
   Volume2, 
   VolumeX, 
   User as UserIcon, 
   ChevronRight,
-  ChevronDown,
   ShieldCheck,
   Smartphone,
-  Scale,
-  Bot,
-  Sparkles
+  Scale
 } from 'lucide-react';
 import { usePwaInstall } from '../../context/PwaInstallContext';
 import { useBackButton } from '../../context/BackNavigationContext';
@@ -32,28 +27,17 @@ export const HeaderBurgerMenu: React.FC = () => {
   const { isInstalled, promptInstall } = usePwaInstall();
   const { 
     workouts, 
-    customExercises, 
     soundEnabled, 
     setSoundEnabled, 
-    showToast,
-    setIsProfileModalOpen,
-    setIsAICoachOpen
+    setIsProfileModalOpen
   } = useWorkout();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
-  const [isDataExpanded, setIsDataExpanded] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useBackButton(isOpen, () => setIsOpen(false), 70);
-
-  // Reset expanded sub-menus when burger menu closes
-  useEffect(() => {
-    if (!isOpen) {
-      setIsDataExpanded(false);
-    }
-  }, [isOpen]);
 
   // Close when clicking outside
   useEffect(() => {
@@ -94,37 +78,6 @@ export const HeaderBurgerMenu: React.FC = () => {
     sounds.playPop();
     setIsOpen(false);
     setIsAuthModalOpen(true);
-  };
-
-  const handleExportJSONClick = () => {
-    sounds.playPop();
-    exportToJSON(workouts, customExercises);
-    showToast({
-      title: '💾 Yedek İndirildi',
-      description: 'JSON formatında yedek dosyanız kaydedildi.',
-      type: 'success'
-    });
-    setIsOpen(false);
-  };
-
-  const handleExportCSVClick = () => {
-    sounds.playPop();
-    if (workouts.length === 0) {
-      showToast({
-        title: 'Kayıt Yok',
-        description: 'Dışa aktarılacak antrenman bulunamadı.',
-        type: 'info'
-      });
-      setIsOpen(false);
-      return;
-    }
-    exportToCSV(workouts);
-    showToast({
-      title: '📊 CSV İndirildi',
-      description: 'Excel uyumlu antrenman tablosu kaydedildi.',
-      type: 'success'
-    });
-    setIsOpen(false);
   };
 
   const handleOpenBackup = () => {
@@ -238,20 +191,20 @@ export const HeaderBurgerMenu: React.FC = () => {
               position: 'absolute',
               top: 'calc(100% + 8px)',
               right: 0,
-              width: 'min(340px, calc(100vw - 32px))',
-              background: 'rgba(15, 23, 42, 0.95)',
+              width: 'min(320px, calc(100vw - 32px))',
+              background: 'rgba(15, 23, 42, 0.96)',
               backdropFilter: 'blur(24px)',
               WebkitBackdropFilter: 'blur(24px)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: 'var(--radius-lg)',
               boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05)',
               zIndex: 999,
-              padding: '14px',
+              padding: '12px',
               animation: 'burgerMenuFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               transformOrigin: 'top right'
             }}
           >
-            {/* Header: User Profile / Cloud status banner */}
+            {/* 1. Hesap & Bulut Eşitleme */}
             <div
               onClick={handleOpenAuth}
               style={{
@@ -265,7 +218,7 @@ export const HeaderBurgerMenu: React.FC = () => {
                   : 'linear-gradient(135deg, rgba(255, 71, 87, 0.15), rgba(56, 189, 248, 0.1))',
                 border: user ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 71, 87, 0.3)',
                 cursor: 'pointer',
-                marginBottom: '12px',
+                marginBottom: 8,
                 transition: 'all 0.2s'
               }}
               title="Hesap ve Bulut Durumunu Aç"
@@ -299,7 +252,7 @@ export const HeaderBurgerMenu: React.FC = () => {
 
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: 13, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {user ? (user.displayName || 'Kullanıcı') : 'Misafir Kullanıcı'}
+                    {user ? (user.displayName || 'Kullanıcı') : 'Bulut Hesabı Bağla'}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                     {user ? (
@@ -317,7 +270,7 @@ export const HeaderBurgerMenu: React.FC = () => {
                     ) : (
                       <>
                         <Cloud size={12} color="var(--accent)" />
-                        <span style={{ color: 'var(--accent)' }}>Bulut Hesabı Bağla</span>
+                        <span>Cihazlar arası yedekle</span>
                       </>
                     )}
                   </div>
@@ -327,9 +280,9 @@ export const HeaderBurgerMenu: React.FC = () => {
               <ChevronRight size={16} color="var(--text-dim)" style={{ flexShrink: 0 }} />
             </div>
 
-            {/* PWA YÜKLEME BUTONU (Eğer yüklü değilse) */}
+            {/* PWA Yükleme Butonu (Eğer yüklü değilse) */}
             {!isInstalled && (
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 8 }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -359,43 +312,9 @@ export const HeaderBurgerMenu: React.FC = () => {
               </div>
             )}
 
-
-            {/* SECTION: BİLİMSEL KOÇLUK & GYMLEVELS */}
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, paddingLeft: 4 }}>
-              Bilimsel Koçluk & Standartlar
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              {/* AI Koç */}
-              <button
-                type="button"
-                onClick={() => {
-                  sounds.playPop();
-                  setIsOpen(false);
-                  setIsAICoachOpen(true);
-                }}
-                className="burger-menu-item"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(56, 189, 248, 0.08))',
-                  border: '1px solid rgba(168, 85, 247, 0.3)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="burger-item-icon" style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' }}>
-                    <Bot size={16} />
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>Bilimsel AI Antrenör</span>
-                      <Sparkles size={12} color="var(--gold)" />
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Plato kırma, analiz ve tavsiyeler</div>
-                  </div>
-                </div>
-                <ChevronRight size={14} color="var(--text-dim)" />
-              </button>
-
-              {/* Sporcu Profili (GymLevels) */}
+            {/* Menu Items List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+              {/* 2. Sporcu Profili */}
               <button
                 type="button"
                 onClick={() => {
@@ -410,172 +329,39 @@ export const HeaderBurgerMenu: React.FC = () => {
                     <Scale size={16} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>Sporcu Profili & Kilo</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>GymLevels standartları & Gemini API</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>Sporcu Profili</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Vücut ağırlığı ve antrenman hedefi</div>
                   </div>
                 </div>
                 <ChevronRight size={14} color="var(--text-dim)" />
               </button>
-            </div>
 
-            {/* SECTION: DIŞA AKTARMA VE YEDEK (Export & Data) */}
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, paddingLeft: 4 }}>
-              Veri & Dışa Aktarma
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <div className={`burger-accordion-card ${isDataExpanded ? 'is-expanded' : ''}`}>
-                {/* Accordion Trigger Header */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    sounds.playPop();
-                    setIsDataExpanded(!isDataExpanded);
-                  }}
-                  className="burger-accordion-trigger"
-                  aria-expanded={isDataExpanded}
-                  title="Veri ve Yedekleme Seçenekleri"
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div 
-                      className="burger-item-icon" 
-                      style={{ 
-                        background: isDataExpanded ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.12)', 
-                        color: 'var(--cyan)',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      <Database size={16} />
-                    </div>
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>
-                        Yedekleme & Dışa Aktar
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {isDataExpanded ? 'Seçenekleri gizlemek için dokun' : 'JSON, Excel ve Geri Yükle'}
-                      </div>
-                    </div>
+              {/* 3. Veri & Yedekleme */}
+              <button
+                type="button"
+                onClick={handleOpenBackup}
+                className="burger-menu-item"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="burger-item-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: 'var(--muscle-emerald)' }}>
+                    <Database size={16} />
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {!isDataExpanded && workouts.length > 0 && (
-                      <span className="badge badge-lvl" style={{ fontSize: 9.5, padding: '1px 6px', opacity: 0.9 }}>
-                        {workouts.length} Kayıt
-                      </span>
-                    )}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 22,
-                        height: 22,
-                        borderRadius: '50%',
-                        background: isDataExpanded ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                        color: isDataExpanded ? 'var(--cyan)' : 'var(--text-dim)',
-                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                        transform: isDataExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                      }}
-                    >
-                      <ChevronDown size={14} />
-                    </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>Veri & Yedekleme</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>JSON/Excel dışa aktar, geri yükle</div>
                   </div>
-                </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {workouts.length > 0 && (
+                    <span className="badge badge-lvl" style={{ fontSize: 9.5, padding: '1px 6px' }}>
+                      {workouts.length}
+                    </span>
+                  )}
+                  <ChevronRight size={14} color="var(--text-dim)" />
+                </div>
+              </button>
 
-                {/* Expanded Sub-items */}
-                {isDataExpanded && (
-                  <div className="burger-accordion-content">
-                    {/* JSON Export */}
-                    <button
-                      type="button"
-                      onClick={handleExportJSONClick}
-                      className="burger-sub-item"
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div 
-                          className="burger-item-icon" 
-                          style={{ 
-                            width: 28, 
-                            height: 28, 
-                            background: 'rgba(255, 71, 87, 0.14)', 
-                            color: 'var(--accent)' 
-                          }}
-                        >
-                          <Download size={14} />
-                        </div>
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-main)' }}>JSON Yedek İndir</div>
-                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Tüm verileri tam yedek olarak kaydet</div>
-                        </div>
-                      </div>
-                      <span className="badge badge-lvl" style={{ fontSize: 9.5, padding: '1px 5px', flexShrink: 0 }}>
-                        {workouts.length} Kayıt
-                      </span>
-                    </button>
-
-                    {/* CSV Export */}
-                    <button
-                      type="button"
-                      onClick={handleExportCSVClick}
-                      className="burger-sub-item"
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div 
-                          className="burger-item-icon" 
-                          style={{ 
-                            width: 28, 
-                            height: 28, 
-                            background: 'rgba(16, 185, 129, 0.14)', 
-                            color: 'var(--muscle-emerald)' 
-                          }}
-                        >
-                          <FileSpreadsheet size={14} />
-                        </div>
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-main)' }}>CSV / Excel Tablosu</div>
-                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Excel uyumlu antrenman tablosu</div>
-                        </div>
-                      </div>
-                      <ChevronRight size={13} color="var(--text-dim)" style={{ flexShrink: 0 }} />
-                    </button>
-
-                    {/* Advanced Data Management */}
-                    <button
-                      type="button"
-                      onClick={handleOpenBackup}
-                      className="burger-sub-item"
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div 
-                          className="burger-item-icon" 
-                          style={{ 
-                            width: 28, 
-                            height: 28, 
-                            background: 'rgba(56, 189, 248, 0.14)', 
-                            color: 'var(--cyan)' 
-                          }}
-                        >
-                          <Database size={14} />
-                        </div>
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-main)' }}>Yedekleme & Geri Yükle</div>
-                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>JSON yükle, sıfırla veya örnek veri</div>
-                        </div>
-                      </div>
-                      <ChevronRight size={13} color="var(--text-dim)" style={{ flexShrink: 0 }} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* SECTION: TERCİHLER (Preferences) */}
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, paddingLeft: 4 }}>
-              Tercihler & Ayarlar
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-              {/* Sound Toggle */}
+              {/* 4. Ses Efektleri */}
               <div
                 onClick={handleToggleSound}
                 className="burger-menu-item"
@@ -587,11 +373,10 @@ export const HeaderBurgerMenu: React.FC = () => {
                   </div>
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>Ses Efektleri</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sayaç ve buton geri bildirim sesleri</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Geri bildirim sesleri</div>
                   </div>
                 </div>
                 
-                {/* Modern Switch UI */}
                 <div
                   style={{
                     width: 38,
@@ -624,7 +409,7 @@ export const HeaderBurgerMenu: React.FC = () => {
             {/* Footer / App Info */}
             <div
               style={{
-                marginTop: 6,
+                marginTop: 4,
                 paddingTop: 8,
                 borderTop: '1px solid rgba(255, 255, 255, 0.06)',
                 display: 'flex',
@@ -638,9 +423,9 @@ export const HeaderBurgerMenu: React.FC = () => {
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <ShieldCheck size={12} color="var(--muscle-emerald)" />
-                Hüs Spor Günlüğü • PWA
+                Spor Defterim • PWA
               </span>
-              <span>v2.1.0</span>
+              <span>v2.2</span>
             </div>
           </div>
         )}

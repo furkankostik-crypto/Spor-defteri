@@ -139,18 +139,16 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
   const progressPct = totalExercises > 0 ? Math.min(100, Math.round((completedExercisesCount / totalExercises) * 100)) : 0;
 
   // Window overlays & modal states
-  const [isMinimizeOverlayOpen, setIsMinimizeOverlayOpen] = useState(false);
   const [isCloseOverlayOpen, setIsCloseOverlayOpen] = useState(false);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isZeroSetsHelpModalOpen, setIsZeroSetsHelpModalOpen] = useState(false);
 
   // Back button handlers for internal overlays & modals
-  const isAnyConfirmationOverlayOpen = isMinimizeOverlayOpen || isCloseOverlayOpen || isFinishModalOpen || isZeroSetsHelpModalOpen;
+  const isAnyConfirmationOverlayOpen = isCloseOverlayOpen || isFinishModalOpen || isZeroSetsHelpModalOpen;
   useBackButton(
     isAnyConfirmationOverlayOpen,
     () => {
       sounds.playPop();
-      setIsMinimizeOverlayOpen(false);
       setIsCloseOverlayOpen(false);
       setIsFinishModalOpen(false);
       setIsZeroSetsHelpModalOpen(false);
@@ -193,7 +191,6 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
   const handleMinimizeAndGoToHub = () => {
     sounds.playPop();
     setIsWorkoutMinimized(true);
-    setIsMinimizeOverlayOpen(false);
     setIsCloseOverlayOpen(false);
     setIsFinishModalOpen(false);
     setIsZeroSetsHelpModalOpen(false);
@@ -270,19 +267,6 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
     });
   }, [allExercises, searchQuery, selectedCategoryFilter]);
 
-  const muscleList: MuscleGroup[] = [
-    'chest',
-    'back',
-    'shoulder',
-    'biceps',
-    'triceps',
-    'quads',
-    'hamstring',
-    'glutes',
-    'abs',
-    'calves'
-  ];
-
   return (
     <div style={{ padding: '16px 16px calc(100px + var(--safe-bottom)) 16px', animation: 'fadeIn 0.2s ease-out' }}>
       {/* 1. TOP STICKY BAR: Live Timer, Split Title & Action Controls */}
@@ -350,10 +334,7 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
           {/* 1. Minimize Button (—) */}
           <button
             type="button"
-            onClick={() => {
-              sounds.playPop();
-              setIsMinimizeOverlayOpen(true);
-            }}
+            onClick={handleMinimizeAndGoToHub}
             style={{
               width: 30,
               height: 28,
@@ -593,59 +574,19 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
           {builderTab === 'map' && (
             <div>
               {selectedMuscle === null ? (
-                <div>
-                  <AnatomicalBodyMap
-                    onSelectMuscle={(m) => {
-                      sounds.playPop();
-                      setSelectedMuscle(m);
-                    }}
-                    selectedMuscle={selectedMuscle}
-                  />
-
-                  {/* Quick Muscle Selector Badges below map */}
-                  <div style={{ marginTop: 14, marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
-                      Hızlı Kas Grubu Seçimi:
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {muscleList.map(m => {
-                        const mMeta = muscleMetadata[m];
-                        return (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => {
-                              sounds.playPop();
-                              setSelectedMuscle(m);
-                            }}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: 'var(--radius-full)',
-                              background: 'rgba(30, 41, 59, 0.6)',
-                              border: '1px solid rgba(255, 255, 255, 0.08)',
-                              color: '#ffffff',
-                              fontSize: 11,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <AnatomyIcon muscle={m} size={14} />
-                            <span>{mMeta?.name || m}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                <AnatomicalBodyMap
+                  onSelectMuscle={(m) => {
+                    sounds.playPop();
+                    setSelectedMuscle(m);
+                  }}
+                  selectedMuscle={selectedMuscle}
+                />
               ) : (
                 <MuscleDetailView
                   muscle={selectedMuscle}
                   onBack={() => setSelectedMuscle(null)}
                   onSelectOtherMuscle={(m) => setSelectedMuscle(m)}
+                  onSelectExercise={(ex) => handleAddOrOpenExercise(ex)}
                 />
               )}
             </div>
@@ -949,25 +890,31 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
               </div>
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                  sounds.playPop();
+                  setIsAddModalOpen(true);
+                }}
                 style={{
-                  background: 'none',
-                  border: 'none',
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: 'var(--radius-full)',
+                  padding: '4px 10px',
                   color: 'var(--cyan)',
-                  fontSize: 12,
+                  fontSize: 11.5,
                   fontWeight: 800,
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 4
+                  gap: 5,
+                  transition: 'all 0.15s ease'
                 }}
               >
-                <Plus size={14} />
-                <span>Hareket Ekle</span>
+                <Plus size={13} strokeWidth={2.5} />
+                <span>+ Ekle</span>
               </button>
             </div>
 
-            {/* 2-Column Grid of Exercise Square Cards */}
+            {/* 2-Column Grid of Exercise Square Cards + Slot Card for Adding Exercise */}
             <div
               style={{
                 display: 'grid',
@@ -984,6 +931,113 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                   onClick={() => setSelectedOverlayExercise(exercise)}
                 />
               ))}
+
+              {/* Add Exercise Slot Card (Matches ExerciseSquareCard grid layout) */}
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playPop();
+                  setIsAddModalOpen(true);
+                }}
+                className="add-exercise-slot-card"
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '8px 8px 10px',
+                  borderRadius: 'var(--radius-lg)',
+                  background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.3), rgba(15, 23, 42, 0.6))',
+                  border: '1.5px dashed rgba(56, 189, 248, 0.45)',
+                  boxShadow: 'var(--shadow-sm)',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  gap: 6,
+                  transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+                  width: '100%',
+                  textAlign: 'center',
+                  color: 'inherit'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--cyan)';
+                  e.currentTarget.style.background = 'linear-gradient(145deg, rgba(56, 189, 248, 0.12), rgba(15, 23, 42, 0.75))';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.45)';
+                  e.currentTarget.style.background = 'linear-gradient(145deg, rgba(30, 41, 59, 0.3), rgba(15, 23, 42, 0.6))';
+                  e.currentTarget.style.transform = 'none';
+                }}
+              >
+                {/* 1:1 Aspect Ratio Slot Visual placeholder */}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                    background: 'radial-gradient(circle at center, rgba(56, 189, 248, 0.12) 0%, rgba(10, 15, 29, 0.7) 70%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    border: '1px dashed rgba(56, 189, 248, 0.25)'
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(30, 41, 59, 0.8))',
+                      border: '1.5px solid rgba(56, 189, 248, 0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--cyan)',
+                      boxShadow: '0 4px 14px rgba(56, 189, 248, 0.2)'
+                    }}
+                  >
+                    <Plus size={24} strokeWidth={2.5} />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      color: 'var(--cyan)',
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-full)'
+                    }}
+                  >
+                    Yeni Hareket
+                  </span>
+                </div>
+
+                {/* Info Text matching card heights */}
+                <div
+                  style={{
+                    width: '100%',
+                    textAlign: 'center',
+                    minHeight: 38,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    gap: 2
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 12.5, color: '#ffffff', lineHeight: 1.25 }}>
+                    Hareket Ekle
+                  </div>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)' }}>
+                    Listeye slot ekle
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -1213,53 +1267,23 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
               {addModalTab === 'map' && (
                 <div>
                   {modalSelectedMuscle === null ? (
-                    <div>
-                      <AnatomicalBodyMap
-                        onSelectMuscle={(m) => {
-                          sounds.playPop();
-                          setModalSelectedMuscle(m);
-                        }}
-                        selectedMuscle={modalSelectedMuscle}
-                      />
-                      <div style={{ marginTop: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
-                          Hızlı Kas Grubu Seç:
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {muscleList.map(m => (
-                            <button
-                              key={m}
-                              type="button"
-                              onClick={() => {
-                                sounds.playPop();
-                                setModalSelectedMuscle(m);
-                              }}
-                              style={{
-                                padding: '4px 8px',
-                                borderRadius: 'var(--radius-full)',
-                                background: 'rgba(30, 41, 59, 0.7)',
-                                border: '1px solid rgba(255, 255, 255, 0.08)',
-                                color: '#ffffff',
-                                fontSize: 10.5,
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4
-                              }}
-                            >
-                              <AnatomyIcon muscle={m} size={13} />
-                              <span>{muscleMetadata[m]?.name || m}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    <AnatomicalBodyMap
+                      onSelectMuscle={(m) => {
+                        sounds.playPop();
+                        setModalSelectedMuscle(m);
+                      }}
+                      selectedMuscle={modalSelectedMuscle}
+                    />
                   ) : (
                     <MuscleDetailView
                       muscle={modalSelectedMuscle}
                       onBack={() => setModalSelectedMuscle(null)}
                       onSelectOtherMuscle={(m) => setModalSelectedMuscle(m)}
+                      onSelectExercise={(ex) => {
+                        setIsAddModalOpen(false);
+                        setModalSelectedMuscle(null);
+                        handleAddOrOpenExercise(ex);
+                      }}
                     />
                   )}
                 </div>
@@ -1447,101 +1471,6 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 8. MINIMIZE CONFIRMATION OVERLAY */}
-      {isMinimizeOverlayOpen && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setIsMinimizeOverlayOpen(false)}
-          style={{ zIndex: 1100 }}
-        >
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: 360,
-              width: '90%',
-              padding: '22px 20px',
-              borderRadius: 'var(--radius-xl)',
-              background: '#0f172a',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 'var(--radius-md)',
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  border: '1px solid rgba(56, 189, 248, 0.35)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--cyan)',
-                  flexShrink: 0
-                }}
-              >
-                <Minimize2 size={18} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 900, color: '#ffffff', margin: 0 }}>
-                  Antrenmanı Küçült?
-                </h3>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
-                  Arka planda çalışmaya devam edecek
-                </div>
-              </div>
-            </div>
-
-            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
-              Kronometre ve antrenmanınız işlemeye devam eder. Panodaki çubuktan veya antrenman sekmesinden dilediğiniz an geri dönebilirsiniz.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button
-                type="button"
-                onClick={handleMinimizeAndGoToHub}
-                className="btn btn-primary"
-                style={{
-                  padding: '12px 14px',
-                  fontSize: 13,
-                  fontWeight: 800,
-                  borderRadius: 'var(--radius-md)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, rgba(14, 165, 233, 0.4) 100%)',
-                  border: '1px solid rgba(56, 189, 248, 0.5)',
-                  color: 'var(--cyan)',
-                  cursor: 'pointer'
-                }}
-              >
-                <Minimize2 size={15} />
-                <span>Küçült ve Panoya Dön</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsMinimizeOverlayOpen(false)}
-                className="btn btn-secondary"
-                style={{
-                  padding: '10px 14px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer'
-                }}
-              >
-                Antrenmanda Kal
-              </button>
             </div>
           </div>
         </div>

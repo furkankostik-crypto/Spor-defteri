@@ -1,25 +1,24 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
-import { SplitType } from '../../types/workout';
+import { SplitType, Workout } from '../../types/workout';
 import { ActiveWorkoutLogger } from './ActiveWorkoutLogger';
-import { AnatomyIcon } from '../../data/anatomyIcons';
-import { muscleMetadata } from '../../data/muscleMetadata';
 import { sounds } from '../../utils/audio';
 import { getSuggestedNextWorkout, getRecommendedRoutineForSplit } from '../../utils/recommendationEngine';
 import { isDurationExercise, isSetValid, getSetDurationSeconds } from '../../utils/calculations';
-import { getTodayLocalDate } from '../../utils/dateUtils';
+import { calculateOverallGymLevels } from '../../utils/scientificCalculations';
+import { getTodayLocalDate, formatDisplayDate } from '../../utils/dateUtils';
 import { 
   Flame, 
   ChevronRight, 
-  History as HistoryIcon,
-  Zap,
   CheckCircle2,
-  Check,
   Play,
   ArrowRight,
-  Bot,
   Dumbbell,
-  PlusCircle
+  History as HistoryIcon,
+  Calendar,
+  Award,
+  Trophy,
+  RotateCcw
 } from 'lucide-react';
 import { HeaderBurgerMenu } from '../layout/HeaderBurgerMenu';
 
@@ -33,93 +32,66 @@ export const WorkoutView: React.FC = () => {
     isWorkoutMinimized,
     setIsWorkoutMinimized,
     resumeActiveWorkout,
+    activeSessionStartTime,
     draft,
     startWorkoutWithRoutine,
     setActiveTab,
-    setIsAICoachOpen
+    showToast
   } = useWorkout();
 
   const todayStr = getTodayLocalDate();
   const todayWorkout = useMemo(() => workouts.find(w => w.date === todayStr), [workouts, todayStr]);
   const suggestedNext = getSuggestedNextWorkout(workouts);
+  const gymLevels = useMemo(() => calculateOverallGymLevels(workouts, allExercises, profile), [workouts, allExercises, profile]);
 
-  // Selected split for recommended routine
-  const [selectedSplit, setSelectedSplit] = useState<SplitType>(() => {
-    if (isLoggingWorkout && draft.splitType) return draft.splitType;
-    if (todayWorkout?.splitType) return todayWorkout.splitType;
-    return suggestedNext.recommendedSplit || 'upper';
+  // Live timer for minimized active session banner
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(() => {
+    if (!activeSessionStartTime) return 0;
+    return Math.max(0, Math.floor((Date.now() - activeSessionStartTime) / 1000));
   });
 
-  const recommendedRoutine = useMemo(() => {
-    return getRecommendedRoutineForSplit(selectedSplit, allExercises, workouts, profile);
-  }, [selectedSplit, allExercises, workouts, profile]);
+  useEffect(() => {
+    if (!isLoggingWorkout || !activeSessionStartTime) return;
+    const updateTimer = () => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - activeSessionStartTime) / 1000)));
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [isLoggingWorkout, activeSessionStartTime]);
 
-  // Combine routine items with active draft sets or today's completed logs
-  const routineWithStatus = useMemo(() => {
-    return recommendedRoutine.map((item) => {
-      const isDur = isDurationExercise(item.exercise);
-      // Check if this exercise has progress in the active draft session
-      const draftSets = isLoggingWorkout ? draft.exerciseSets[item.exercise.id] : undefined;
-      const completedDraftSets = draftSets ? draftSets.filter(s => s.completed && isSetValid(s, isDur)) : [];
-      const isDoneInDraft = Boolean(draftSets && draftSets.length > 0 && completedDraftSets.length === draftSets.length);
-      const isPartialInDraft = Boolean(completedDraftSets.length > 0 && !isDoneInDraft);
-      const draftMaxWeight = completedDraftSets.length > 0
-        ? Math.max(...completedDraftSets.map(s => isDur ? getSetDurationSeconds(s, true) : s.weight))
-        : undefined;
+  const formatTimer = (totalSec: number) => {
+    const hours = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    if (hours > 0) {
+      return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
-      // Completed if in saved workout today OR completely finished in current active draft
-      const isCompleted = Boolean(item.isCompletedToday || isDoneInDraft);
-      const completedSetsCount = isDoneInDraft ? completedDraftSets.length : (item.todaySetsCount || 0);
-      const completedMaxWeight = isDoneInDraft ? draftMaxWeight : item.todayMaxWeight;
-
-      return {
-        ...item,
-        isDuration: isDur,
-        isCompleted,
-        isPartialInDraft,
-        completedDraftSetsCount: completedDraftSets.length,
-        totalDraftSetsCount: draftSets?.length || 3,
-        completedSetsCount,
-        completedMaxWeight
-      };
-    });
-  }, [recommendedRoutine, isLoggingWorkout, draft.exerciseSets]);
-
-  const completedExercisesCount = routineWithStatus.filter(r => r.isCompleted).length;
-  const remainingExercises = routineWithStatus.filter(r => !r.isCompleted);
-  const remainingExercisesCount = remainingExercises.length;
-  const totalRoutineExercises = routineWithStatus.length;
-  const isAllRoutineCompleted = totalRoutineExercises > 0 && remainingExercisesCount === 0;
-
-  const splits: { id: SplitType; label: string }[] = [
-    { id: 'upper', label: 'Üst Vücut' },
-    { id: 'lower', label: 'Alt Vücut' },
-    { id: 'full', label: 'Tüm Vücut' },
-    { id: 'custom', label: 'Core / Özel' }
+  const splits: { id: SplitType; label: string; shortDesc: string; color: string }[] = [
+    { id: 'upper', label: 'Üst Vücut', shortDesc: 'Göğüs, Sırt, Omuz, Kol', color: '#38bdf8' },
+    { id: 'lower', label: 'Alt Vücut', shortDesc: 'Ön/Arka Bacak, Kalça, Kalf', color: '#c084fc' },
+    { id: 'full', label: 'Tüm Vücut', shortDesc: 'Bileşik Temel Hareketler', color: '#34d399' },
+    { id: 'custom', label: 'Core & Özel', shortDesc: 'Karın, Merkez & İzole', color: '#fbbf24' }
   ];
 
-  // Smart handler to start or resume recommended workout
-  const handleStartOrResumeRecommendedWorkout = () => {
-    // 1. If this exact routine is already in progress (minimized), smoothly resume without restarting!
-    if (isLoggingWorkout && draft.splitType === selectedSplit) {
+  // Start a blank custom workout session
+  const handleStartBlankWorkout = () => {
+    sounds.playSuccess();
+    if (isLoggingWorkout) {
       resumeActiveWorkout();
       return;
     }
+    startWorkoutWithRoutine('custom', []);
+  };
 
-    // 2. If another workout is active in background, warn user before overwriting
-    if (isLoggingWorkout && draft.splitType !== selectedSplit) {
-      if (!window.confirm('Farklı bir bölgede devam eden bir antrenmanınız var. Mevcut seansı iptal edip yeni antrenman başlatmak istiyor musunuz?')) {
-        return;
-      }
-    }
-
+  // Start a specific split routine immediately
+  const handleQuickStartSplit = (splitId: SplitType) => {
     sounds.playSuccess();
-
-    // 3. Prepare exercises:
-    // If an exercise was already completed today in today's saved workout,
-    // load its completed sets with completed: true so they are displayed as done!
-    // Remaining uncompleted exercises are loaded with target weights ready to perform.
-    const preparedExercises = recommendedRoutine.map((item) => {
+    const splitRoutine = getRecommendedRoutineForSplit(splitId, allExercises, workouts, profile);
+    const preparedExercises = splitRoutine.map((item) => {
       const isDur = isDurationExercise(item.exercise);
       if (item.isCompletedToday && item.todaySets && item.todaySets.length > 0) {
         return {
@@ -127,7 +99,6 @@ export const WorkoutView: React.FC = () => {
           sets: item.todaySets.map(s => ({ weight: s.weight, reps: s.reps, completed: true }))
         };
       }
-
       const targetVal = item.suggestedWeight || item.lastWeight || (isDur ? 45 : 0);
       return {
         exerciseId: item.exercise.id,
@@ -138,126 +109,288 @@ export const WorkoutView: React.FC = () => {
         ]
       };
     });
-
-    startWorkoutWithRoutine(selectedSplit, preparedExercises);
+    startWorkoutWithRoutine(splitId, preparedExercises);
   };
 
-  const handleStartBlankWorkout = () => {
-    if (isLoggingWorkout && Object.keys(draft.exerciseSets).length > 0) {
-      if (!window.confirm('Devam eden bir antrenmanınız var. Yeni boş antrenman başlatırsanız mevcut aktif oturum sıfırlanacaktır. Devam etmek istiyor musunuz?')) {
-        return;
+  // Repeat a past workout session
+  const handleRepeatPastWorkout = (pastWorkout: Workout) => {
+    sounds.playSuccess();
+    const inferredSplit: SplitType = pastWorkout.splitType || 'upper';
+    const preparedExercises = pastWorkout.exercises.map((savedEx) => {
+      const isDur = isDurationExercise(savedEx.id);
+      if (savedEx.detailedSets && savedEx.detailedSets.length > 0) {
+        return {
+          exerciseId: savedEx.id,
+          sets: savedEx.detailedSets.map(s => ({
+            weight: isDur ? 0 : s.weight,
+            reps: isDur ? getSetDurationSeconds(s, true) : (s.reps || 8),
+            completed: false
+          }))
+        };
       }
-    }
-    sounds.playPop();
-    startWorkoutWithRoutine(selectedSplit, []);
+      const fallbackSets = (savedEx.sets || [0, 0, 0]).map(w => ({
+        weight: isDur ? 0 : w,
+        reps: isDur ? (w > 0 ? w : 45) : 8,
+        completed: false
+      }));
+      return {
+        exerciseId: savedEx.id,
+        sets: fallbackSets.length > 0 ? fallbackSets : [
+          { weight: 0, reps: isDur ? 45 : 8, completed: false },
+          { weight: 0, reps: isDur ? 45 : 8, completed: false },
+          { weight: 0, reps: isDur ? 45 : 8, completed: false }
+        ]
+      };
+    });
+    startWorkoutWithRoutine(inferredSplit, preparedExercises);
+    showToast({
+      title: '🔄 Antrenman Yüklendi',
+      description: `${pastWorkout.type} (${pastWorkout.exercises.length} hareket) yeni seansa aktarıldı.`,
+      type: 'success'
+    });
   };
 
-  // If in an active workout logging session and not minimized, render the intuitive step-by-step logger
+  // Helper to compute sets & volume of a Workout for recent history summary
+  const getWorkoutMetrics = (w: Workout) => {
+    let sets = 0;
+    let vol = 0;
+    w.exercises.forEach(ex => {
+      const isDur = isDurationExercise(ex.id);
+      if (ex.detailedSets && ex.detailedSets.length > 0) {
+        ex.detailedSets.forEach(s => {
+          if (isSetValid(s, isDur)) {
+            sets++;
+            if (!isDur) vol += s.weight * (s.reps || 5);
+          }
+        });
+      } else if (ex.sets) {
+        ex.sets.forEach(wgt => {
+          if (wgt > 0) {
+            sets++;
+            if (!isDur) vol += wgt * 5;
+          }
+        });
+      }
+    });
+    return { sets, vol };
+  };
+
+  const recentWorkouts = useMemo(() => workouts.slice(0, 2), [workouts]);
+
+  const activeDraftExercisesCount = Object.keys(draft.exerciseSets).length;
+  const activeDraftCompletedSetsCount = Object.entries(draft.exerciseSets).reduce((sum, [exId, sets]) => {
+    const isDur = isDurationExercise(exId);
+    return sum + sets.filter(s => s.completed && isSetValid(s, isDur)).length;
+  }, 0);
+
+  // If in an active workout logging session and not minimized, render the full logger
   if (isLoggingWorkout && !isWorkoutMinimized) {
     return <ActiveWorkoutLogger onBackToHub={() => setIsWorkoutMinimized(true)} />;
   }
 
-  // ==========================================
-  // VIEW: SEZGİSEL VE PROFESYONEL ANTRENMAN MERKEZİ (WORKOUT HUB)
-  // ==========================================
   return (
     <div style={{ padding: '16px 16px calc(92px + var(--safe-bottom)) 16px', animation: 'fadeIn 0.2s ease-out' }}>
-      {/* 1. TOP HEADER & QUICK STATS */}
+      {/* ========================================================= */}
+      {/* 1. HEADER: APP TITLE, DATE & BURGER MENU                  */}
+      {/* ========================================================= */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 16
+          marginBottom: 14
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
-            <span style={{ fontSize: 19 }}>🏋️</span>
-            <h2 style={{ fontSize: 21, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
-              Bugünün Antrenmanı
-            </h2>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
+            Spor Defterim
+          </h2>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <Calendar size={12} color="var(--accent)" />
             <span>{new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' })}</span>
-            <span style={{ color: 'var(--border)' }}>•</span>
-            <span style={{ color: '#fbbf24', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-              <Flame size={12} fill="currentColor" />
-              {overallStats.activeStreak} Gün Seri
-            </span>
           </div>
         </div>
 
-        {/* Top Right: AI Coach button & Burger Menu */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => {
-              sounds.playPop();
-              setIsAICoachOpen(true);
-            }}
-            className="btn btn-secondary"
-            style={{
-              padding: '6px 10px',
-              fontSize: 12,
-              fontWeight: 700,
-              borderRadius: 'var(--radius-full)',
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              color: 'var(--cyan)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5
-            }}
-            title="AI Antrenör Danışmanı"
-          >
-            <Bot size={14} />
-            <span>AI Koç</span>
-          </button>
-          <HeaderBurgerMenu />
-        </div>
+        <HeaderBurgerMenu />
       </div>
 
-      {/* ONGOING WORKOUT RESUME BANNER (WHEN MINIMIZED) */}
-      {isLoggingWorkout && isWorkoutMinimized && (
-        <div
-          onClick={resumeActiveWorkout}
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%)',
-            border: '1.5px solid rgba(16, 185, 129, 0.55)',
-            boxShadow: '0 8px 30px rgba(16, 185, 129, 0.2)',
-            padding: '14px 16px',
-            borderRadius: 'var(--radius-lg)',
-            marginBottom: 16,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* ========================================================= */}
+      {/* 2. PROGRESS & STATUS SUMMARY STRIP (GELİŞİM ÖZETİ)        */}
+      {/* ========================================================= */}
+      <div
+        onClick={() => {
+          sounds.playPop();
+          setActiveTab('stats');
+        }}
+        style={{
+          background: 'linear-gradient(135deg, rgba(24, 34, 52, 0.92), rgba(15, 23, 42, 0.96))',
+          border: '1px solid rgba(255, 255, 255, 0.09)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '12px 14px',
+          marginBottom: 14,
+          cursor: 'pointer',
+          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)'
+        }}
+      >
+        {/* Top Row: Rank / Level + Progress Bar + Detail Link */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div
               style={{
-                width: 38,
-                height: 38,
+                width: 30,
+                height: 30,
                 borderRadius: 'var(--radius-md)',
-                background: '#10b981',
+                background: overallStats.rankGradient,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#ffffff'
+                fontSize: 14,
+                fontWeight: 900,
+                color: '#ffffff',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
               }}
             >
-              <Dumbbell size={20} strokeWidth={2.5} />
+              {gymLevels.overallTierBadge || '🏆'}
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: '#ffffff' }}>
-                Devam Eden Bir Antrenmanınız Var!
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 900, color: '#ffffff' }}>
+                  {overallStats.rankTitle}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    color: 'var(--cyan)',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    padding: '1px 6px',
+                    borderRadius: 'var(--radius-full)'
+                  }}
+                >
+                  Lv {overallStats.overallLevel}
+                </span>
               </div>
-              <div style={{ fontSize: 12, color: '#a7f3d0' }}>
-                {completedExercisesCount} / {totalRoutineExercises} hareket tamamlandı • Dokunarak devam edin
+              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                {gymLevels.strongestLift
+                  ? `En Güçlü: ${gymLevels.strongestLift.exerciseName} (${gymLevels.strongestLift.estimated1RM} kg)`
+                  : 'Gelişim ve seviye detayları için dokun'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: 'var(--cyan)', flexShrink: 0 }}>
+            <span>Gelişim</span>
+            <ChevronRight size={14} />
+          </div>
+        </div>
+
+        {/* 3 Compact Stat Pills: Seri | Toplam Antrenman | Toplam Hacim */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 8,
+            paddingTop: 10,
+            borderTop: '1px solid rgba(255, 255, 255, 0.07)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Flame size={15} color="#fbbf24" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: '#ffffff', lineHeight: 1.1 }}>
+                {overallStats.activeStreak} Gün
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>
+                Aktif Seri
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} color="#10b981" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: '#ffffff', lineHeight: 1.1 }}>
+                {overallStats.totalWorkouts} Seans
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>
+                Toplam İdman
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Trophy size={15} color="#38bdf8" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: '#ffffff', lineHeight: 1.1 }}>
+                {overallStats.totalVolumeKg >= 1000
+                  ? `${(overallStats.totalVolumeKg / 1000).toFixed(1)} Ton`
+                  : `${overallStats.totalVolumeKg} kg`}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>
+                Toplam Hacim
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 3. WORKOUT LAUNCHPAD (YENİ ANTRENMAN BAŞLATMA ALANI)       */}
+      {/* ========================================================= */}
+      {isLoggingWorkout ? (
+        /* Active Session Resume Card */
+        <div
+          onClick={resumeActiveWorkout}
+          style={{
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%)',
+            border: '1.5px solid rgba(16, 185, 129, 0.5)',
+            padding: '14px 16px',
+            borderRadius: 'var(--radius-lg)',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.18)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 'var(--radius-md)',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                flexShrink: 0
+              }}
+            >
+              <Dumbbell size={20} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14.5, fontWeight: 900, color: '#ffffff' }}>
+                  Antrenman Devam Ediyor
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: '#34d399',
+                    background: 'rgba(16, 185, 129, 0.18)',
+                    padding: '1px 7px',
+                    borderRadius: 'var(--radius-full)'
+                  }}
+                >
+                  {formatTimer(elapsedSeconds)}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                {activeDraftExercisesCount} Hareket • {activeDraftCompletedSetsCount} Set Tamamlandı
               </div>
             </div>
           </div>
@@ -268,549 +401,267 @@ export const WorkoutView: React.FC = () => {
               e.stopPropagation();
               resumeActiveWorkout();
             }}
-            className="btn btn-primary"
             style={{
-              padding: '8px 14px',
+              background: '#10b981',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              padding: '9px 14px',
               fontSize: 12.5,
               fontWeight: 800,
-              borderRadius: 'var(--radius-md)',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              border: 'none',
-              color: '#ffffff',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 4
+              gap: 5,
+              cursor: 'pointer',
+              flexShrink: 0
             }}
           >
             <span>Devam Et</span>
             <ArrowRight size={14} />
           </button>
         </div>
-      )}
-
-      {/* 2. DAILY PT STATUS & CONTEXT CARD */}
-      {suggestedNext.isTodayCompleted ? (
-        /* TODAY WORKOUT COMPLETED / IN-PROGRESS STATUS CARD */
+      ) : (
+        /* Start New Workout Card */
         <div
           className="card"
           style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.85) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.35)',
-            boxShadow: '0 8px 30px rgba(16, 185, 129, 0.1)',
-            padding: '16px',
+            padding: '14px',
             borderRadius: 'var(--radius-lg)',
-            marginBottom: 16
+            marginBottom: 16,
+            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.92) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                background: 'rgba(16, 185, 129, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <CheckCircle2 size={16} color="#10b981" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Yeni Antrenman Başlat
             </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: '#ffffff' }}>
-                {isAllRoutineCompleted
-                  ? 'Bugünkü Program Başarıyla Tamamlandı! 🎉'
-                  : `Bugün ${todayWorkout?.exercises.length || 0} Hareket Tamamlandı 🔥`}
-              </div>
-              <div style={{ fontSize: 11.5, color: '#a7f3d0' }}>
-                {isAllRoutineCompleted 
-                  ? 'Harika iş çıkardın! Kasların dinlenme ve toparlanma moduna geçti.'
-                  : `Kalan ${remainingExercisesCount} hareketi şimdi tamamlayabilir veya dinlenebilirsiniz.`}
-              </div>
-            </div>
+            {todayWorkout && (
+              <span
+                onClick={() => setActiveTab('history')}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#34d399',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  cursor: 'pointer'
+                }}
+              >
+                <CheckCircle2 size={13} />
+                <span>Bugün {todayWorkout.exercises.length} hareket yapıldı</span>
+              </span>
+            )}
           </div>
 
-          {suggestedNext.ptGuidance?.todayWorkoutSummary && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 6,
-                background: 'rgba(0, 0, 0, 0.3)',
-                padding: '8px 10px',
-                borderRadius: 'var(--radius-md)',
-                marginTop: 10,
-                marginBottom: 10,
-                textAlign: 'center'
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontWeight: 700 }}>BÖLGE</div>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {suggestedNext.ptGuidance.todayWorkoutSummary.splitName}
-                </div>
-              </div>
-              <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontWeight: 700 }}>TOPLAM SET</div>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff' }}>
-                  {suggestedNext.ptGuidance.todayWorkoutSummary.totalSets} Set
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontWeight: 700 }}>HACİM</div>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#fbbf24' }}>
-                  {suggestedNext.ptGuidance.todayWorkoutSummary.totalVolumeKg.toLocaleString('tr-TR')} kg
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div
+          {/* Primary CTA: Start Blank / Custom Workout */}
+          <button
+            type="button"
+            onClick={handleStartBlankWorkout}
+            className="btn btn-primary"
             style={{
-              fontSize: 12,
-              color: 'var(--text-secondary)',
+              width: '100%',
+              padding: '13px 16px',
+              fontSize: 14,
+              fontWeight: 900,
+              borderRadius: 'var(--radius-md)',
+              background: 'linear-gradient(135deg, var(--accent) 0%, #e11d48 100%)',
+              boxShadow: '0 6px 20px rgba(255, 71, 87, 0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '8px 10px',
-              background: 'rgba(255, 255, 255, 0.04)',
-              borderRadius: 'var(--radius-sm)'
+              marginBottom: 10
             }}
           >
-            <span>Sıradaki Hedef: <strong style={{ color: '#ffffff' }}>{suggestedNext.ptGuidance?.nextSessionTarget || 'Alt Vücut'}</strong></span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Play size={17} fill="currentColor" />
+              <div style={{ textAlign: 'left' }}>
+                <div>Serbest Antrenman Başlat</div>
+                <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.88 }}>
+                  Kendi hareketlerini seçerek boş seans aç
+                </div>
+              </div>
+            </div>
+            <ArrowRight size={17} />
+          </button>
+
+          {/* Quick Split Routine Starter Chips (Üst / Alt / Tüm Vücut / Core) */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+            veya hazır programla başla:
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 6
+            }}
+          >
+            {splits.map((s) => {
+              const isRecommended = suggestedNext.recommendedSplit === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleQuickStartSplit(s.id)}
+                  style={{
+                    position: 'relative',
+                    padding: '8px 4px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: isRecommended ? `${s.color}15` : 'rgba(15, 23, 42, 0.85)',
+                    border: isRecommended ? `1.5px solid ${s.color}` : `1px solid ${s.color}35`,
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 2,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ fontSize: 11, fontWeight: 800, color: s.color, whiteSpace: 'nowrap' }}>
+                    {s.label}
+                  </span>
+                  <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Program →
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 4. RECENT WORKOUTS SUMMARY (SON ANTRENMANLAR ÖZETİ)       */}
+      {/* ========================================================= */}
+      {recentWorkouts.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 8
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <HistoryIcon size={13} color="var(--cyan)" />
+              <span>Son Antrenmanlar</span>
+            </div>
             <button
               type="button"
-              onClick={() => setActiveTab('history')}
+              onClick={() => {
+                sounds.playPop();
+                setActiveTab('history');
+              }}
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'var(--accent)',
+                color: 'var(--cyan)',
                 fontSize: 11.5,
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 3
+                gap: 2,
+                padding: 0
               }}
             >
-              <span>Geçmişte Gör</span>
+              <span>Tüm Geçmiş ({workouts.length})</span>
               <ChevronRight size={13} />
             </button>
           </div>
-        </div>
-      ) : (
-        /* WORKOUT READY / COACH RECOMMENDATION CARD */
-        <div
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.28)',
-            boxShadow: '0 8px 32px rgba(56, 189, 248, 0.08)',
-            padding: '14px 16px',
-            borderRadius: 'var(--radius-lg)',
-            marginBottom: 16
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '3px 9px',
-                borderRadius: 'var(--radius-full)',
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
-                fontSize: 11,
-                fontWeight: 800,
-                color: '#7dd3fc',
-                letterSpacing: '0.02em'
-              }}
-            >
-              <Zap size={13} fill="currentColor" />
-              <span>GÜNÜN KOÇ ÖNERİSİ: {suggestedNext.splitTitle.toUpperCase()}</span>
-            </div>
 
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-              Kişisel PT
-            </span>
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {recentWorkouts.map((w) => {
+              const { sets, vol } = getWorkoutMetrics(w);
+              const exerciseNames = w.exercises.slice(0, 3).map(e => e.name).join(', ');
+              const extraCount = w.exercises.length > 3 ? ` +${w.exercises.length - 3}` : '';
 
-          <p
-            style={{
-              fontSize: 12.5,
-              color: 'var(--text-secondary)',
-              margin: '0',
-              lineHeight: 1.45
-            }}
-          >
-            {suggestedNext.reason}
-          </p>
-        </div>
-      )}
+              return (
+                <div
+                  key={w.id}
+                  onClick={() => {
+                    sounds.playPop();
+                    setActiveTab('history');
+                  }}
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.78)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: '#ffffff' }}>
+                        {w.type}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600 }}>
+                        • {formatDisplayDate(w.date)}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--text-muted)',
+                        marginTop: 2,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {exerciseNames}{extraCount}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, fontSize: 10.5, fontWeight: 700 }}>
+                      <span style={{ color: '#34d399' }}>{w.exercises.length} Hareket ({sets} Set)</span>
+                      {vol > 0 && (
+                        <>
+                          <span style={{ color: 'var(--border)' }}>•</span>
+                          <span style={{ color: '#fbbf24' }}>{vol.toLocaleString('tr-TR')} kg</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
 
-      {/* SPLIT SELECTOR BAR (Always visible and accessible) */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
-          <span>Antrenman Bölgesini Seç / Değiştir:</span>
-          {completedExercisesCount > 0 && (
-            <span style={{ color: '#10b981', fontWeight: 800 }}>
-              ✓ {completedExercisesCount} / {totalRoutineExercises} Hareket Tamamlandı
-            </span>
-          )}
-        </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 5,
-            background: 'rgba(15, 23, 42, 0.8)',
-            padding: '4px',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          {splits.map((s) => {
-            const isActive = selectedSplit === s.id;
-            const isSuggested = suggestedNext.recommendedSplit === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  sounds.playPop();
-                  setSelectedSplit(s.id);
-                }}
-                style={{
-                  padding: '8px 4px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  background: isActive ? 'var(--accent)' : 'transparent',
-                  color: isActive ? '#ffffff' : 'var(--text-muted)',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 2,
-                  boxShadow: isActive ? '0 2px 8px rgba(255, 71, 87, 0.35)' : 'none'
-                }}
-              >
-                <span>{s.label}</span>
-                {isSuggested && (
-                  <span
-                    style={{
-                      fontSize: 8,
-                      fontWeight: 900,
-                      color: isActive ? '#ffe4e6' : 'var(--cyan)',
-                      letterSpacing: '0.04em'
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRepeatPastWorkout(w);
                     }}
-                  >
-                    ● ÖNERİ
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3. RECOMMENDED EXERCISE ROUTINE LIST */}
-      <div
-        className="card"
-        style={{
-          padding: '16px',
-          borderRadius: 'var(--radius-lg)',
-          marginBottom: 16,
-          border: '1px solid rgba(255, 255, 255, 0.09)',
-          background: 'rgba(15, 23, 42, 0.75)'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 900, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Dumbbell size={16} color="var(--accent)" />
-              <span>Program Listesi</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
-              {splits.find(s => s.id === selectedSplit)?.label} için optimize edilmiş hipertrofi akışı
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 6 }}>
-            {completedExercisesCount > 0 && (
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  padding: '3px 8px',
-                  borderRadius: 'var(--radius-full)',
-                  background: 'rgba(16, 185, 129, 0.18)',
-                  color: '#34d399',
-                  border: '1px solid rgba(16, 185, 129, 0.35)'
-                }}
-              >
-                ✓ {completedExercisesCount} Bitti
-              </span>
-            )}
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 800,
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-full)',
-                background: 'rgba(255, 255, 255, 0.06)',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
-              }}
-            >
-              {totalRoutineExercises} Hareket
-            </span>
-          </div>
-        </div>
-
-        {/* Exercise Items List with intelligent completion badges */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {routineWithStatus.map((item, index) => {
-            const meta = muscleMetadata[item.exercise.muscle];
-            const isDone = item.isCompleted;
-            const isPartial = item.isPartialInDraft;
-
-            return (
-              <div
-                key={item.exercise.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  background: isDone 
-                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.7) 100%)' 
-                    : isPartial
-                    ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.7) 100%)'
-                    : 'rgba(30, 41, 59, 0.4)',
-                  border: isDone 
-                    ? '1.5px solid rgba(16, 185, 129, 0.45)' 
-                    : isPartial
-                    ? '1.5px solid rgba(245, 158, 11, 0.45)'
-                    : '1px solid rgba(255, 255, 255, 0.06)',
-                  gap: 10,
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {/* Left: Index / Check icon + Muscle badge + Exercise Name */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                  <div
+                    title="Bu antrenmanı tekrar başlat"
                     style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: '50%',
-                      background: isDone 
-                        ? '#10b981' 
-                        : isPartial
-                        ? '#f59e0b'
-                        : 'rgba(255, 255, 255, 0.08)',
-                      color: isDone || isPartial ? '#ffffff' : 'var(--text-muted)',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      color: 'var(--cyan)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '6px 10px',
                       fontSize: 11,
                       fontWeight: 800,
-                      display: 'flex',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      gap: 4,
                       flexShrink: 0
                     }}
                   >
-                    {isDone ? <Check size={14} strokeWidth={3} /> : index + 1}
-                  </div>
-
-                  <div
-                    className={`anatomy-badge muscle-${item.exercise.muscle}`}
-                    style={{ width: 32, height: 32, flexShrink: 0 }}
-                  >
-                    <AnatomyIcon muscle={item.exercise.muscle} size={18} />
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: 800,
-                        fontSize: 13,
-                        color: isDone ? '#a7f3d0' : '#ffffff',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {item.exercise.name}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span>{meta?.name || item.exercise.muscle}</span>
-                      <span>•</span>
-                      <span style={{ color: isDone ? '#34d399' : 'var(--cyan)', fontWeight: 600 }}>
-                        {isDone ? `${item.completedSetsCount} Set Tamam` : item.targetReps}
-                      </span>
-                    </div>
-                  </div>
+                    <RotateCcw size={12} />
+                    <span>Tekrarla</span>
+                  </button>
                 </div>
-
-                {/* Right: Completed Status Badge OR Target Weight */}
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  {isDone ? (
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-end'
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 10.5,
-                          fontWeight: 800,
-                          color: '#34d399',
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          border: '1px solid rgba(16, 185, 129, 0.35)',
-                          padding: '2px 7px',
-                          borderRadius: 'var(--radius-sm)'
-                        }}
-                      >
-                        ✓ Bugün Yapıldı
-                      </span>
-                      {item.completedMaxWeight ? (
-                        <div style={{ fontSize: 9.5, color: '#a7f3d0', marginTop: 2 }}>
-                          {item.completedMaxWeight} {item.isDuration ? 'sn' : 'kg'}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : isPartial ? (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        color: '#fde68a',
-                        background: 'rgba(245, 158, 11, 0.15)',
-                        border: '1px solid rgba(245, 158, 11, 0.35)',
-                        padding: '2px 7px',
-                        borderRadius: 'var(--radius-sm)'
-                      }}
-                    >
-                      {item.completedDraftSetsCount}/{item.totalDraftSetsCount} Set
-                    </span>
-                  ) : item.lastWeight ? (
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 800,
-                          color: item.isOverload ? '#10b981' : '#ffffff'
-                        }}
-                      >
-                        {item.suggestedWeight ? `${item.suggestedWeight} ${item.isDuration ? 'sn' : 'kg'}` : `${item.lastWeight} ${item.isDuration ? 'sn' : 'kg'}`}
-                      </div>
-                      <div style={{ fontSize: 9.5, color: 'var(--text-dim)' }}>
-                        Son: {item.lastWeight} {item.isDuration ? 'sn' : 'kg'}
-                      </div>
-                    </div>
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: 'var(--text-dim)',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        padding: '3px 7px',
-                        borderRadius: 'var(--radius-sm)'
-                      }}
-                    >
-                      Form Oturtma
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-      {/* 4. WORKOUT ACTIONS (3 EQUAL BUTTONS IN ONE ROW) */}
-      <div className="workout-actions-grid">
-        <button
-          type="button"
-          onClick={handleStartOrResumeRecommendedWorkout}
-          className="btn btn-primary workout-action-btn"
-          style={{
-            background: isLoggingWorkout
-              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-              : (completedExercisesCount > 0 && remainingExercisesCount > 0)
-              ? 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)'
-              : isAllRoutineCompleted
-              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-              : 'linear-gradient(135deg, #ff4757 0%, #e84118 100%)',
-            boxShadow: isLoggingWorkout || isAllRoutineCompleted
-              ? '0 4px 14px rgba(16, 185, 129, 0.35)'
-              : (completedExercisesCount > 0 && remainingExercisesCount > 0)
-              ? '0 4px 14px rgba(14, 165, 233, 0.35)'
-              : '0 4px 14px rgba(255, 71, 87, 0.35)',
-            border: '1px solid transparent',
-            color: '#ffffff'
-          }}
-        >
-          {isLoggingWorkout ? (
-            <>
-              <ArrowRight size={15} style={{ flexShrink: 0 }} />
-              <span>Devam Et</span>
-            </>
-          ) : completedExercisesCount > 0 && remainingExercisesCount > 0 ? (
-            <>
-              <Play size={15} fill="currentColor" style={{ flexShrink: 0 }} />
-              <span>Kalanı Başlat</span>
-            </>
-          ) : isAllRoutineCompleted ? (
-            <>
-              <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
-              <span>Tamamlandı</span>
-            </>
-          ) : (
-            <>
-              <Play size={15} fill="currentColor" style={{ flexShrink: 0 }} />
-              <span>Antrenmanı Başlat</span>
-            </>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleStartBlankWorkout}
-          className="btn btn-secondary workout-action-btn"
-          style={{
-            background: 'rgba(30, 41, 59, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          <PlusCircle size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-          <span>Boş Antrenman</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            sounds.playPop();
-            setActiveTab('history');
-          }}
-          className="btn btn-secondary workout-action-btn"
-          style={{
-            background: 'rgba(30, 41, 59, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          <HistoryIcon size={15} color="var(--accent)" style={{ flexShrink: 0 }} />
-          <span>Geçmiş İdmanlar</span>
-        </button>
-      </div>
+      )}
     </div>
   );
 };

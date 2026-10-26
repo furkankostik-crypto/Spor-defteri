@@ -6,15 +6,14 @@ import { Dumbbell, ChevronUp } from 'lucide-react';
 export const ActiveWorkoutFloatingBanner: React.FC = () => {
   const { 
     isLoggingWorkout, 
-    isWorkoutMinimized, 
     activeTab, 
     activeSessionStartTime, 
     draft, 
     resumeActiveWorkout 
   } = useWorkout();
 
-  // Show banner if workout is logging AND (user minimized it OR user switched away from 'workout' tab)
-  const shouldShow = isLoggingWorkout && (isWorkoutMinimized || activeTab !== 'workout');
+  // Show floating banner only when user switched away from 'workout' tab (on 'workout' tab, the top "Seansa Dön" button is already visible)
+  const shouldShow = isLoggingWorkout && activeTab !== 'workout';
 
   // Real-time elapsed time calculation from wall-clock start time
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(() => {

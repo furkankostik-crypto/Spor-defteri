@@ -5,11 +5,8 @@ import { sounds } from '../../utils/audio';
 import { 
   X, 
   Scale, 
-  Sparkles, 
-  Key, 
   Save, 
-  Check, 
-  Info 
+  Check
 } from 'lucide-react';
 
 export const AthleteProfileModal: React.FC = () => {
@@ -24,8 +21,6 @@ export const AthleteProfileModal: React.FC = () => {
   const [gender, setGender] = useState<Gender>(profile.gender || 'male');
   const [age, setAge] = useState<number>(profile.age || 25);
   const [goal, setGoal] = useState<'hypertrophy' | 'strength' | 'endurance'>(profile.trainingGoal || 'hypertrophy');
-  const [apiKey, setApiKey] = useState<string>(profile.geminiApiKey || '');
-  const [showKeyInfo, setShowKeyInfo] = useState<boolean>(false);
 
   useEffect(() => {
     if (isProfileModalOpen) {
@@ -33,7 +28,6 @@ export const AthleteProfileModal: React.FC = () => {
       setGender(profile.gender || 'male');
       setAge(profile.age || 25);
       setGoal(profile.trainingGoal || 'hypertrophy');
-      setApiKey(profile.geminiApiKey || '');
     }
   }, [isProfileModalOpen, profile]);
 
@@ -46,8 +40,7 @@ export const AthleteProfileModal: React.FC = () => {
       bodyWeightKg: Math.max(30, Math.min(250, weight)),
       gender,
       age: Math.max(12, Math.min(100, age)),
-      trainingGoal: goal,
-      geminiApiKey: apiKey.trim()
+      trainingGoal: goal
     });
     setIsProfileModalOpen(false);
   };
@@ -63,7 +56,7 @@ export const AthleteProfileModal: React.FC = () => {
         className="modal-content" 
         onClick={(e) => e.stopPropagation()} 
         style={{ 
-          maxWidth: 440,
+          maxWidth: 420,
           background: 'linear-gradient(180deg, #162032 0%, #0d131f 100%)',
           border: '1px solid rgba(56, 189, 248, 0.3)',
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.15)',
@@ -90,11 +83,11 @@ export const AthleteProfileModal: React.FC = () => {
               <Scale size={20} />
             </div>
             <div>
-              <h3 style={{ fontSize: 17, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                Sporcu Profili & Standartlar
+              <h3 style={{ fontSize: 17, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
+                Sporcu Profili
               </h3>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                GymLevels güç çarpanları ve 1RM hesaplama kriterleri
+                Güç standartları ve 1RM hesaplama kriterleri
               </div>
             </div>
           </div>
@@ -151,14 +144,14 @@ export const AthleteProfileModal: React.FC = () => {
               </div>
             </div>
             <div style={{ fontSize: 10.5, color: 'var(--text-dim)', marginTop: 4 }}>
-              * Kaldırdığınız ağırlıkların vücut kütlenize oranı (1.2x BW vb.) için kullanılır.
+              * Kaldırdığınız ağırlıkların vücut kütlenize oranı için kullanılır.
             </div>
           </div>
 
           {/* Cinsiyet */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: '#ffffff', marginBottom: 6, display: 'block' }}>
-              Biyolojik Cinsiyet
+              Cinsiyet
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <button
@@ -183,7 +176,7 @@ export const AthleteProfileModal: React.FC = () => {
                   transition: 'all 0.2s'
                 }}
               >
-                <span>Erkek (Male)</span>
+                <span>Erkek</span>
                 {gender === 'male' && <Check size={14} color="var(--cyan)" />}
               </button>
 
@@ -209,12 +202,9 @@ export const AthleteProfileModal: React.FC = () => {
                   transition: 'all 0.2s'
                 }}
               >
-                <span>Kadın (Female)</span>
+                <span>Kadın</span>
                 {gender === 'female' && <Check size={14} color="#ec4899" />}
               </button>
-            </div>
-            <div style={{ fontSize: 10.5, color: 'var(--text-dim)', marginTop: 4 }}>
-              * Dünya güç standartları kadın ve erkek fizyolojisine göre ayrı hesaplanır.
             </div>
           </div>
 
@@ -237,7 +227,7 @@ export const AthleteProfileModal: React.FC = () => {
 
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#ffffff', marginBottom: 6, display: 'block' }}>
-                Hedef
+                Antrenman Odağı
               </label>
               <select
                 value={goal}
@@ -245,54 +235,11 @@ export const AthleteProfileModal: React.FC = () => {
                 className="form-input"
                 style={{ height: 40, fontSize: 12 }}
               >
-                <option value="hypertrophy">Hipertrofi (Kas)</option>
+                <option value="hypertrophy">Hipertrofi (Kas Gelişimi)</option>
                 <option value="strength">Maksimal Güç</option>
                 <option value="endurance">Dayanıklılık</option>
               </select>
             </div>
-          </div>
-
-          {/* AI Entegrasyonu: Gemini API Anahtarı */}
-          <div 
-            style={{ 
-              marginTop: 6,
-              padding: '12px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(168, 85, 247, 0.08)',
-              border: '1px solid rgba(168, 85, 247, 0.25)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#c084fc', fontSize: 12, fontWeight: 800 }}>
-                <Sparkles size={14} />
-                <span>Google Gemini AI API (Opsiyonel)</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowKeyInfo(!showKeyInfo)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', display: 'flex' }}
-              >
-                <Info size={14} />
-              </button>
-            </div>
-
-            <div style={{ position: 'relative' }}>
-              <input 
-                type="password"
-                placeholder="AIzaSy... (Boş bırakırsanız dahili koç çalışır)"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="form-input"
-                style={{ paddingLeft: 32, fontSize: 12, height: 38 }}
-              />
-              <Key size={14} color="var(--text-dim)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-            </div>
-
-            {showKeyInfo && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.4 }}>
-                Gemini API anahtarı ekleyerek antrenman verilerinizin en güncel Gemini modeliyle derinlemesine analiz edilmesini sağlayabilirsiniz. Anahtar girilmezse uygulamanın yerleşik çevrimdışı bilimsel motoru kullanılır.
-              </div>
-            )}
           </div>
 
           {/* Kaydet Butonu */}
@@ -313,7 +260,7 @@ export const AthleteProfileModal: React.FC = () => {
             }}
           >
             <Save size={16} />
-            <span>Bilimsel Standartları Kaydet</span>
+            <span>Kaydet</span>
           </button>
         </form>
       </div>

@@ -1,14 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
 import { useBackButton } from '../../context/BackNavigationContext';
-import { usePwaInstall } from '../../context/PwaInstallContext';
 import { calculateExerciseLevelInfo, calculateProportionalMuscleVolume, isDurationExercise } from '../../utils/calculations';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { MuscleGroup, ExerciseLevelInfo } from '../../types/workout';
 import { OverallRankCard } from '../levels/OverallRankCard';
 import { ExerciseLevelCard } from '../levels/ExerciseLevelCard';
 import { MuscleMasteryCard } from '../levels/MuscleMasteryCard';
-import { BackupModal } from '../common/BackupModal';
 import { HeaderBurgerMenu } from '../layout/HeaderBurgerMenu';
 import { ScientificVolumeCard } from './ScientificVolumeCard';
 import { sounds } from '../../utils/audio';
@@ -21,26 +19,16 @@ import {
   Target,
   TrendingUp, 
   Sparkles, 
-  Volume2,
-  VolumeX,
-  Database, 
-  DownloadCloud, 
-  Settings,
   Search, 
-  SlidersHorizontal,
-  Bot
+  SlidersHorizontal
 } from 'lucide-react';
 
 export const ProgressView: React.FC = () => {
   const { 
     overallStats, 
     workouts, 
-    allExercises, 
-    soundEnabled, 
-    setSoundEnabled,
-    setIsAICoachOpen
+    allExercises
   } = useWorkout();
-  const { isInstalled, promptInstall } = usePwaInstall();
   
   // Segment tab: 'stats' (Genel Analiz) or 'levels' (Egzersiz Seviyeleri & PR'lar)
   const [activeSegment, setActiveSegment] = useState<'stats' | 'levels'>('stats');
@@ -58,13 +46,6 @@ export const ProgressView: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'upper' | 'lower' | 'core'>('all');
   const [sortBy, setSortBy] = useState<'level' | 'exp' | 'name'>('level');
-
-  // Backup modal state
-  const [isBackupOpen, setIsBackupOpen] = useState(false);
-  const canInstall = !isInstalled;
-  const handleInstallClick = () => {
-    promptInstall();
-  };
 
   // Precompute level info for all exercises once to eliminate redundant calculations during sort
   const exerciseInfoMap = useMemo(() => {
@@ -134,7 +115,7 @@ export const ProgressView: React.FC = () => {
   }, [allExercises, exerciseInfoMap, workouts]);
 
   return (
-    <div style={{ padding: '16px', animation: 'fadeIn 0.2s ease-out' }}>
+    <div style={{ padding: '16px 16px calc(92px + var(--safe-bottom)) 16px', animation: 'fadeIn 0.2s ease-out' }}>
       {/* Page Header */}
       <div
         style={{
@@ -145,77 +126,16 @@ export const ProgressView: React.FC = () => {
         }}
       >
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
             Gelişim & İstatistik
           </h2>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Kaldırılan ağırlıklar, seviyeler ve bulut senkronizasyonu
+            Kaldırılan ağırlıklar, kişisel rekorlar ve kas seviyeleri
           </div>
         </div>
 
         {/* Top Right: Unified Burger Menu */}
         <HeaderBurgerMenu />
-      </div>
-
-      {/* AI Bilimsel Koç Hero Banner */}
-      <div
-        onClick={() => {
-          sounds.playPop();
-          setIsAICoachOpen(true);
-        }}
-        style={{
-          background: 'linear-gradient(135deg, rgba(126, 34, 206, 0.22), rgba(192, 132, 252, 0.12))',
-          border: '1px solid rgba(168, 85, 247, 0.35)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '12px 14px',
-          marginBottom: 14,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(168, 85, 247, 0.15)',
-          transition: 'all 0.2s'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 'var(--radius-md)',
-              background: 'linear-gradient(135deg, #7e22ce, #c084fc)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)',
-              flexShrink: 0
-            }}
-          >
-            <Bot size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 900, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>Bilimsel AI Antrenör</span>
-              <span 
-                style={{ 
-                  fontSize: 9, 
-                  background: 'rgba(168, 85, 247, 0.3)', 
-                  color: '#e9d5ff', 
-                  padding: '1px 5px', 
-                  borderRadius: 'var(--radius-sm)',
-                  fontWeight: 800 
-                }}
-              >
-                YAPAY ZEKA
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              Gelişim analizi, plato çözümleri ve kişisel koçluk için dokun
-            </div>
-          </div>
-        </div>
-        <span style={{ fontSize: 12, color: '#c084fc', fontWeight: 800 }}>Sor ➔</span>
       </div>
 
       {/* Segmented Tab Switcher */}
@@ -241,7 +161,7 @@ export const ProgressView: React.FC = () => {
           className={`segment-btn ${activeSegment === 'levels' ? 'active' : ''}`}
         >
           <Trophy size={15} />
-          <span>GymLevels & PR</span>
+          <span>Seviyeler & PR</span>
         </button>
       </div>
 
@@ -253,7 +173,7 @@ export const ProgressView: React.FC = () => {
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: 12,
+              gap: 10,
               marginBottom: 16
             }}
           >
@@ -292,7 +212,7 @@ export const ProgressView: React.FC = () => {
                 {overallStats.activeStreak} <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>Gün</span>
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
-                Disiplinli devam
+                Düzenli antrenman
               </div>
             </div>
 
@@ -315,7 +235,7 @@ export const ProgressView: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Sparkles size={16} color="var(--gold)" />
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ffffff' }}>En Yüksek Kişisel Rekorlar (PR)</h3>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ffffff', margin: 0 }}>En Yüksek Kişisel Rekorlar (PR)</h3>
               </div>
               <button
                 type="button"
@@ -383,14 +303,11 @@ export const ProgressView: React.FC = () => {
             )}
           </div>
 
-          {/* Bilimsel Haftalık Hipertrofi Hacmi (RP Landmarks) */}
-          <ScientificVolumeCard />
-
           {/* Muscle Group Distribution Bar Chart */}
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Target size={16} color="var(--muscle-emerald)" />
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ffffff' }}>Kas Grubu Hacim Dağılımı</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ffffff', margin: 0 }}>Kas Grubu Hacim Dağılımı</h3>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -422,91 +339,8 @@ export const ProgressView: React.FC = () => {
             </div>
           </div>
 
-          {/* Settings & Data Management Card */}
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <Settings size={16} color="var(--cyan)" />
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ffffff' }}>Ayarlar & Veri Yönetimi</h3>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Sound Toggle */}
-              <div
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--border)',
-                  cursor: 'pointer'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {soundEnabled ? <Volume2 size={18} color="var(--accent)" /> : <VolumeX size={18} color="var(--text-dim)" />}
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#ffffff' }}>Ses Efektleri</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Level atlama ve buton sesleri</div>
-                  </div>
-                </div>
-                <span className={`badge ${soundEnabled ? 'badge-lvl' : ''}`} style={{ fontSize: 11 }}>
-                  {soundEnabled ? 'Açık' : 'Kapalı'}
-                </span>
-              </div>
-
-              {/* Backup Modal Trigger */}
-              <div
-                onClick={() => setIsBackupOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--border)',
-                  cursor: 'pointer'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Database size={18} color="var(--muscle-emerald)" />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#ffffff' }}>Yedekleme & Sıfırlama</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>JSON / Excel indir veya geri yükle</div>
-                  </div>
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>➔</span>
-              </div>
-
-              {/* PWA Install if available */}
-              {canInstall && (
-                <div
-                  onClick={handleInstallClick}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'rgba(255, 71, 87, 0.12)',
-                    border: '1px solid rgba(255, 71, 87, 0.3)',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <DownloadCloud size={18} color="var(--accent)" />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#ffffff' }}>Uygulamayı Cihaza Yükle</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tam ekran PWA olarak kullanın</div>
-                    </div>
-                  </div>
-                  <span className="badge badge-pr" style={{ fontSize: 11 }}>Yükle</span>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Bilimsel Haftalık Hipertrofi Hacmi */}
+          <ScientificVolumeCard />
         </div>
       )}
 
@@ -605,9 +439,6 @@ export const ProgressView: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Backup & Restore Modal */}
-      <BackupModal isOpen={isBackupOpen} onClose={() => setIsBackupOpen(false)} />
     </div>
   );
 };
