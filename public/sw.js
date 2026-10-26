@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gympad-v14';
+const CACHE_NAME = 'gympad-v15';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -41,8 +41,9 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Never intercept Firebase / Firestore / Google Auth / Gemini API or Vite dev requests
+  // Never intercept APK downloads, Firebase / Firestore / Google Auth / Gemini API or Vite dev requests
   if (
+    url.pathname.endsWith('.apk') ||
     url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('identitytoolkit.googleapis.com') ||
     url.hostname.includes('securetoken.googleapis.com') ||

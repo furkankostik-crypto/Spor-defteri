@@ -327,9 +327,8 @@ export const HeaderBurgerMenu: React.FC = () => {
             {!nativeBridge.isNative() && (
               <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <a
-                  href="https://github.com/furkankostik-crypto/Spor-defteri/releases/download/v1.4.0/GymPad.apk"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="/GymPad.apk"
+                  download="GymPad.apk"
                   onClick={() => {
                     sounds.playPop();
                     setIsOpen(false);
