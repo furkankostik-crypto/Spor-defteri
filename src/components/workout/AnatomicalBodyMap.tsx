@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MuscleGroup, NextWorkoutSuggestion } from '../../types/workout';
 import { AnatomyIcon } from '../../data/anatomyIcons';
 import { muscleMetadata } from '../../data/muscleMetadata';
@@ -23,6 +23,36 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   const { draft, allExercises } = useWorkout();
   const [view, setView] = useState<'front' | 'back'>('front');
   const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null);
+
+  // Touch swipe handling
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+    // Detect horizontal swipe if deltaX is sufficiently larger than vertical movement
+    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+      sounds.playPop();
+      if (deltaX < 0) {
+        // Swiped Left -> flip view
+        setView(prev => prev === 'front' ? 'back' : 'front');
+      } else {
+        // Swiped Right -> flip view
+        setView(prev => prev === 'back' ? 'front' : 'back');
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
 
   // Calculate entered sets per muscle in current draft
   const muscleStats = React.useMemo(() => {
@@ -379,13 +409,16 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
       {/* Interactive SVG Human Anatomy Figure */}
       <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           position: 'relative',
           padding: compact ? '2px 0' : '6px 0',
-          minHeight: compact ? '340px' : '420px'
+          minHeight: compact ? '340px' : '420px',
+          touchAction: 'pan-y'
         }}
       >
         <svg
