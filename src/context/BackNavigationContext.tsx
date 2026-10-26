@@ -105,8 +105,9 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
         const filtered = history.filter(t => t !== activeTab);
         tabHistoryRef.current = [...filtered, activeTab];
       }
+      armSentinelGuard();
     }
-  }, [activeTab]);
+  }, [activeTab, armSentinelGuard]);
 
   // Core back button decision pipeline
   const handleBackNavigation = useCallback((): boolean => {
@@ -268,18 +269,20 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       // Run in-app back navigation (close modal / switch tab / open ExitConfirmModal)
       handleBackNavigationRef.current();
 
-      // 5. Immediately step forward back onto our existing user-activated `__spor_guard` entry!
-      // Because `history.forward()` traverses to an already-existing entry created during a real user
-      // gesture, Chromium never marks it as skippable and the back button trap never runs out!
+      // 5. Ensure sentinel guard is continuously active so subsequent back presses are always caught
       try {
         isRestoringSentinelRef.current = true;
         window.history.forward();
-        // Safety fallback reset in case forward() is a no-op
+        // Safety fallback: if forward() was a no-op or didn't land on guard, re-arm
         setTimeout(() => {
           isRestoringSentinelRef.current = false;
-        }, 120);
+          if (!window.history.state?.__spor_guard) {
+            armSentinelGuard();
+          }
+        }, 100);
       } catch {
         isRestoringSentinelRef.current = false;
+        armSentinelGuard();
       }
     };
 
