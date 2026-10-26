@@ -29,11 +29,13 @@ export const HeaderBurgerMenu: React.FC = () => {
     workouts, 
     soundEnabled, 
     setSoundEnabled, 
-    setIsProfileModalOpen
+    setIsProfileModalOpen,
+    showToast
   } = useWorkout();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isUpdatingApp, setIsUpdatingApp] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -90,6 +92,47 @@ export const HeaderBurgerMenu: React.FC = () => {
     e.stopPropagation();
     sounds.playPop();
     setSoundEnabled(!soundEnabled);
+  };
+
+  const handleCheckUpdate = async () => {
+    if (isUpdatingApp) return;
+    sounds.playPop();
+    setIsUpdatingApp(true);
+
+    try {
+      // 1. Unregister Service Workers & force update check
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(
+          registrations.map(async (reg) => {
+            try {
+              await reg.update();
+              await reg.unregister();
+            } catch {}
+          })
+        );
+      }
+
+      // 2. Clear all Cache Storage (leaves localStorage/IndexedDB workout data completely intact!)
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+      }
+
+      showToast({
+        title: 'Güncelleme Alındı',
+        description: 'Uygulama en son sürüme yenileniyor...',
+        type: 'success'
+      });
+
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('v', Date.now().toString());
+        window.location.replace(url.toString());
+      }, 450);
+    } catch {
+      window.location.reload();
+    }
   };
 
   const userInitial = (user?.displayName || user?.email || 'S').charAt(0).toUpperCase();
@@ -404,6 +447,42 @@ export const HeaderBurgerMenu: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* 5. Uygulamayı Güncelle (Önbellek Temizle & Son Sürümü Çek) */}
+              <button
+                type="button"
+                onClick={handleCheckUpdate}
+                disabled={isUpdatingApp}
+                className="burger-menu-item"
+                style={{ opacity: isUpdatingApp ? 0.7 : 1 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="burger-item-icon" style={{ background: 'rgba(168, 85, 247, 0.14)', color: '#c084fc' }}>
+                    <RefreshCw size={16} className={isUpdatingApp ? 'spin' : ''} />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>
+                      {isUpdatingApp ? 'Güncelleniyor...' : 'Uygulamayı Güncelle'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Önbelleği yenile ve son sürümü yükle
+                    </div>
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: '#c084fc',
+                    background: 'rgba(168, 85, 247, 0.14)',
+                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                    padding: '2px 7px',
+                    borderRadius: 6
+                  }}
+                >
+                  Yenile
+                </span>
+              </button>
             </div>
 
             {/* Footer / App Info */}
@@ -425,7 +504,7 @@ export const HeaderBurgerMenu: React.FC = () => {
                 <ShieldCheck size={12} color="var(--muscle-emerald)" />
                 Spor Defterim • PWA
               </span>
-              <span>v2.2</span>
+              <span>v1.2.2 (Build 11)</span>
             </div>
           </div>
         )}
