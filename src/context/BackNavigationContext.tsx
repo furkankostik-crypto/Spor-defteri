@@ -3,6 +3,7 @@ import { useWorkout } from './WorkoutContext';
 import { useAuth } from './AuthContext';
 import { TabType } from '../types/workout';
 import { sounds } from '../utils/audio';
+import { nativeBridge } from '../utils/nativeBridge';
 
 interface BackHandlerEntry {
   id: number;
@@ -106,13 +107,20 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
   const armSentinelGuard = useCallback((hasUserGesture = false) => {
     if (isExitingRef.current || isRestoringSentinelRef.current) return;
 
-    // Always ensure CloseWatcher is armed (if supported, re-creating on gesture upgrades its activation)
-    if (hasUserGesture || !closeWatcherRef.current) {
-      armCloseWatcher();
+    // In Native Capacitor Android/iOS app, hardware back button is handled natively via @capacitor/app!
+    if (nativeBridge.isNative()) return;
+
+    // If CloseWatcher is supported (modern Android Chrome 126+), use ONLY CloseWatcher!
+    // Mixing CloseWatcher + history.pushState causes double-stacking where exiting requires 2 extra back presses.
+    if (typeof window !== 'undefined' && (window as any).CloseWatcher) {
+      if (hasUserGesture || !closeWatcherRef.current) {
+        armCloseWatcher();
+      }
+      return;
     }
 
-    // Only push history state when we have a user gesture (or if we're restoring after a gesture)
-    // Calling pushState without user gesture taints the history entry in Chromium!
+    // Fallback for browsers without CloseWatcher (iOS Safari / older WebViews):
+    // Only push history state when we have a user gesture.
     if (!hasUserGesture) return;
 
     try {
@@ -343,7 +351,12 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       }
     };
 
-    // Support native/hybrid Android WebView `backbutton` event if present
+    // Support native Capacitor (@capacitor/app) and Cordova Android `backbutton` events
+    const removeCapBackListener = nativeBridge.addNativeBackButtonListener(() => {
+      if (isExitingRef.current) return;
+      handleBackNavigationRef.current();
+    });
+
     const onNativeBackButton = (e: Event) => {
       if (isExitingRef.current) return;
       e.preventDefault();
@@ -354,6 +367,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     document.addEventListener('backbutton', onNativeBackButton, false);
 
     return () => {
+      removeCapBackListener();
       window.removeEventListener('popstate', onPopState);
       document.removeEventListener('backbutton', onNativeBackButton, false);
     };
@@ -371,14 +385,18 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     armSentinelGuard(true);
   }, [armSentinelGuard]);
 
-  const confirmExit = useCallback(() => {
+  const confirmExit = useCallback(async () => {
     sounds.playPop();
     isExitingRef.current = true;
     isRestoringSentinelRef.current = false;
     setIsExitModalOpen(false);
     destroyCloseWatcher();
 
-    // 1. Attempt native/PWA window close
+    // 1. If running in Native Android/iOS APK, exit immediately with zero extra taps!
+    const exitedNative = await nativeBridge.exitNativeApp();
+    if (exitedNative) return;
+
+    // 2. Legacy Cordova / WebView close attempt
     try {
       (navigator as any).app?.exitApp?.();
     } catch {}
@@ -386,7 +404,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       window.close();
     } catch {}
 
-    // 2. Unwind browser history stack past our root & guard entries (never navigate to about:blank!)
+    // 3. Unwind browser history stack past our root & guard entries (never navigate to about:blank!)
     try {
       const stepsBack = window.history.state?.__spor_guard ? 2 : 1;
       window.history.go(-stepsBack);
@@ -394,12 +412,12 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       window.history.back();
     }
 
-    // 3. Fallback for standalone PWAs / mobile browsers where OS requires final back/home gesture at root index
+    // 4. Fallback for standalone PWAs / mobile browsers where OS requires final back/home gesture at root index
     setTimeout(() => {
       if (document.visibilityState === 'visible') {
         showToast({
           title: 'Çıkış Hazır',
-          description: 'Uygulamadan çıkmak için telefonunuzun geri veya ana ekran tuşuna dokunun.',
+          description: 'Uygulamadan çıkmak için telefonunuzun geri veya ana ekran tuşuna 1 kez dokunun.',
           type: 'info'
         });
       }

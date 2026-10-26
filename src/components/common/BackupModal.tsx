@@ -29,16 +29,18 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
 
   if (!isOpen) return null;
 
-  const handleExportJSON = () => {
-    exportToJSON(workouts, customExercises);
-    showToast({
-      title: '💾 Yedek İndirildi',
-      description: 'JSON formatında yedek dosyanız kaydedildi.',
-      type: 'success'
-    });
+  const handleExportJSON = async () => {
+    const ok = await exportToJSON(workouts, customExercises);
+    if (ok) {
+      showToast({
+        title: '💾 Yedek Hazır',
+        description: 'JSON formatında yedek dosyanız oluşturuldu.',
+        type: 'success'
+      });
+    }
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (workouts.length === 0) {
       showToast({
         title: 'Kayıt Yok',
@@ -47,12 +49,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
       });
       return;
     }
-    exportToCSV(workouts);
-    showToast({
-      title: '📊 CSV İndirildi',
-      description: 'Excel uyumlu antrenman tablosu kaydedildi.',
-      type: 'success'
-    });
+    const ok = await exportToCSV(workouts);
+    if (ok) {
+      showToast({
+        title: '📊 CSV Hazır',
+        description: 'Excel uyumlu antrenman tablosu oluşturuldu.',
+        type: 'success'
+      });
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

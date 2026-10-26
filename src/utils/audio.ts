@@ -1,4 +1,6 @@
-// Web Audio API Synthesizer (No external asset files needed!)
+// Web Audio API Synthesizer + Native Haptic Feedback Bridge
+import { nativeBridge } from './nativeBridge';
+
 class SoundEffects {
   private ctx: AudioContext | null = null;
   public enabled: boolean = true;
@@ -17,8 +19,9 @@ class SoundEffects {
     return this.ctx;
   }
 
-  // Quick UI Click / Input Pop
+  // Quick UI Click / Input Pop + Light Haptic Tap
   public playPop() {
+    nativeBridge.vibrateLight();
     if (!this.enabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -44,8 +47,9 @@ class SoundEffects {
     }
   }
 
-  // Timer Tick (Short click)
+  // Ruler / Timer Tick (Short click + Selection Haptic Tick)
   public playTick() {
+    nativeBridge.vibrateSelectionTick();
     if (!this.enabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -70,8 +74,9 @@ class SoundEffects {
     }
   }
 
-  // Rest Timer Finished (Double chime)
+  // Rest Timer Finished (Double chime + Strong Vibration Alert)
   public playTimerFinish() {
+    nativeBridge.vibrateTimerFinish();
     if (!this.enabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -100,8 +105,9 @@ class SoundEffects {
     }
   }
 
-  // Workout Saved / Set Logged (Harmonic chord)
+  // Workout Saved / Set Logged (Harmonic chord + Medium Tactile Thud)
   public playSuccess() {
+    nativeBridge.vibrateMedium();
     if (!this.enabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -130,8 +136,9 @@ class SoundEffects {
     }
   }
 
-  // Personal Record (PR) / Level Up Fanfare
+  // Personal Record (PR) / Level Up Fanfare + Celebratory Haptics
   public playFanfare() {
+    nativeBridge.vibrateSuccess();
     if (!this.enabled) return;
     const ctx = this.getContext();
     if (!ctx) return;

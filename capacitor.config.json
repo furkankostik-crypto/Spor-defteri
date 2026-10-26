@@ -1,0 +1,31 @@
+{
+  "appId": "com.spordefterim.app",
+  "appName": "Spor Defterim",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "backgroundColor": "#0b0f17",
+  "android": {
+    "backgroundColor": "#0b0f17",
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#0b0f17",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0b0f17",
+      "overlaysWebView": false
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#ff4757",
+      "sound": "beep.wav"
+    }
+  }
+}

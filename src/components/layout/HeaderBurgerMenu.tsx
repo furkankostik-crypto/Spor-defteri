@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { usePwaInstall } from '../../context/PwaInstallContext';
 import { useBackButton } from '../../context/BackNavigationContext';
+import { nativeBridge } from '../../utils/nativeBridge';
 
 export const HeaderBurgerMenu: React.FC = () => {
   const { user, syncStatus, setIsAuthModalOpen } = useAuth();
@@ -323,8 +324,8 @@ export const HeaderBurgerMenu: React.FC = () => {
               <ChevronRight size={16} color="var(--text-dim)" style={{ flexShrink: 0 }} />
             </div>
 
-            {/* PWA Yükleme Butonu (Eğer yüklü değilse) */}
-            {!isInstalled && (
+            {/* PWA Yükleme Butonu (Eğer yüklü değilse ve Native APK değilse) */}
+            {!isInstalled && !nativeBridge.isNative() && (
               <div style={{ marginBottom: 8 }}>
                 <button
                   type="button"
@@ -448,41 +449,43 @@ export const HeaderBurgerMenu: React.FC = () => {
                 </div>
               </div>
 
-              {/* 5. Uygulamayı Güncelle (Önbellek Temizle & Son Sürümü Çek) */}
-              <button
-                type="button"
-                onClick={handleCheckUpdate}
-                disabled={isUpdatingApp}
-                className="burger-menu-item"
-                style={{ opacity: isUpdatingApp ? 0.7 : 1 }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="burger-item-icon" style={{ background: 'rgba(168, 85, 247, 0.14)', color: '#c084fc' }}>
-                    <RefreshCw size={16} className={isUpdatingApp ? 'spin' : ''} />
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>
-                      {isUpdatingApp ? 'Güncelleniyor...' : 'Uygulamayı Güncelle'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      Önbelleği yenile ve son sürümü yükle
-                    </div>
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: '#c084fc',
-                    background: 'rgba(168, 85, 247, 0.14)',
-                    border: '1px solid rgba(168, 85, 247, 0.3)',
-                    padding: '2px 7px',
-                    borderRadius: 6
-                  }}
+              {/* 5. Uygulamayı Güncelle (Sadece Web/PWA için) */}
+              {!nativeBridge.isNative() && (
+                <button
+                  type="button"
+                  onClick={handleCheckUpdate}
+                  disabled={isUpdatingApp}
+                  className="burger-menu-item"
+                  style={{ opacity: isUpdatingApp ? 0.7 : 1 }}
                 >
-                  Yenile
-                </span>
-              </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="burger-item-icon" style={{ background: 'rgba(168, 85, 247, 0.14)', color: '#c084fc' }}>
+                      <RefreshCw size={16} className={isUpdatingApp ? 'spin' : ''} />
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>
+                        {isUpdatingApp ? 'Güncelleniyor...' : 'Uygulamayı Güncelle'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        Önbelleği yenile ve son sürümü yükle
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color: '#c084fc',
+                      background: 'rgba(168, 85, 247, 0.14)',
+                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                      padding: '2px 7px',
+                      borderRadius: 6
+                    }}
+                  >
+                    Yenile
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Footer / App Info */}
@@ -502,9 +505,9 @@ export const HeaderBurgerMenu: React.FC = () => {
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <ShieldCheck size={12} color="var(--muscle-emerald)" />
-                Spor Defterim • PWA
+                {nativeBridge.isNative() ? 'Spor Defterim • Native App' : 'Spor Defterim • PWA'}
               </span>
-              <span>v1.2.2 (Build 11)</span>
+              <span>v1.3.0 (Build 12)</span>
             </div>
           </div>
         )}

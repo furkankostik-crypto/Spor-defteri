@@ -10,12 +10,27 @@ import { AuthModal } from './components/auth/AuthModal';
 import { InstallPrompt } from './components/common/InstallPrompt';
 import { AthleteProfileModal } from './components/common/AthleteProfileModal';
 import { ActiveWorkoutFloatingBanner } from './components/workout/ActiveWorkoutFloatingBanner';
+import { RestTimerBar } from './components/workout/RestTimerBar';
 import { ExitConfirmModal } from './components/common/ExitConfirmModal';
+import { nativeBridge } from './utils/nativeBridge';
 
 export const App: React.FC = () => {
   const { activeTab, isLoggingWorkout, isWorkoutMinimized } = useWorkout();
 
   const isFullscreenLogging = isLoggingWorkout && !isWorkoutMinimized && activeTab === 'workout';
+
+  // Initialize Native Shell (StatusBar, SplashScreen, Notification Channel)
+  useEffect(() => {
+    nativeBridge.initNativeShell();
+  }, []);
+
+  // Keep screen awake during active workout logging!
+  useEffect(() => {
+    nativeBridge.setKeepScreenAwake(isLoggingWorkout);
+    return () => {
+      nativeBridge.setKeepScreenAwake(false);
+    };
+  }, [isLoggingWorkout]);
 
   useEffect(() => {
     if (isFullscreenLogging) {
@@ -41,6 +56,7 @@ export const App: React.FC = () => {
 
   return (
     <>
+      <RestTimerBar />
       <main style={{ flex: 1 }}>
         {activeTab === 'workout' && <WorkoutView />}
         {activeTab === 'history' && <HistoryView />}

@@ -2,6 +2,7 @@ import { Workout, ExerciseDefinition } from '../types/workout';
 import { mergeWorkoutsByDate } from './workoutMerge';
 import { getTodayLocalDate } from './dateUtils';
 import { isDurationExercise, isSetValid, getSetDurationSeconds, calculateSetEXP } from './calculations';
+import { nativeBridge } from './nativeBridge';
 
 export interface BackupData {
   version: string;
@@ -11,9 +12,9 @@ export interface BackupData {
 }
 
 /**
- * Downloads data as a JSON file
+ * Exports or shares data as a JSON file (uses Native Share Sheet on Android/iOS APK)
  */
-export function exportToJSON(workouts: Workout[], customExercises: ExerciseDefinition[] = []) {
+export async function exportToJSON(workouts: Workout[], customExercises: ExerciseDefinition[] = []): Promise<boolean> {
   const data: BackupData = {
     version: '2.0.0',
     exportedAt: new Date().toISOString(),
@@ -22,21 +23,19 @@ export function exportToJSON(workouts: Workout[], customExercises: ExerciseDefin
   };
 
   const jsonStr = JSON.stringify(data, null, 2);
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `spor-defterim-yedek-${getTodayLocalDate()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const filename = `spor-defterim-yedek-${getTodayLocalDate()}.json`;
+  return nativeBridge.exportOrShareFile(
+    filename,
+    jsonStr,
+    'application/json',
+    'Spor Defterim JSON Yedeği'
+  );
 }
 
 /**
- * Downloads workouts as a formatted CSV spreadsheet
+ * Exports or shares workouts as a formatted CSV spreadsheet (uses Native Share Sheet on Android/iOS APK)
  */
-export function exportToCSV(workouts: Workout[]) {
+export async function exportToCSV(workouts: Workout[]): Promise<boolean> {
   const headers = ['Tarih', 'Bölge', 'Egzersiz', 'Set Numarası', 'Ağırlık (kg)', 'Tekrar / Süre (sn)', 'EXP'];
   const rows: string[][] = [headers];
 
@@ -78,15 +77,13 @@ export function exportToCSV(workouts: Workout[]) {
   });
 
   const csvContent = '\uFEFF' + rows.map(r => r.join(';')).join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `spor-defterim-antrenmanlar-${getTodayLocalDate()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const filename = `spor-defterim-antrenmanlar-${getTodayLocalDate()}.csv`;
+  return nativeBridge.exportOrShareFile(
+    filename,
+    csvContent,
+    'text/csv;charset=utf-8;',
+    'Spor Defterim Excel (CSV) Tablosu'
+  );
 }
 
 /**

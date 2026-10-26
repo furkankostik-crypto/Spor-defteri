@@ -482,6 +482,18 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!currentSets[setIndex]) return prev;
       const nextCompleted = !currentSets[setIndex].completed;
       if (nextCompleted) {
+        sounds.playSuccess();
+        const exName = allExercises.find(e => e.id === exerciseId)?.name;
+        if (typeof window !== 'undefined') {
+          const savedPref = parseInt(localStorage.getItem('spor_preferred_rest_seconds') || '', 10);
+          const secs = savedPref > 0 ? savedPref : 90;
+          window.dispatchEvent(
+            new CustomEvent('spor:start-rest-timer', {
+              detail: { seconds: secs, exerciseName: exName }
+            })
+          );
+        }
+      } else {
         sounds.playPop();
       }
       const updated = currentSets.map((s, idx) => {
