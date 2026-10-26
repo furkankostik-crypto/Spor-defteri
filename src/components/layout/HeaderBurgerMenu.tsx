@@ -324,35 +324,66 @@ export const HeaderBurgerMenu: React.FC = () => {
               <ChevronRight size={16} color="var(--text-dim)" style={{ flexShrink: 0 }} />
             </div>
 
-            {/* PWA Yükleme Butonu (Eğer yüklü değilse ve Native APK değilse) */}
-            {!isInstalled && !nativeBridge.isNative() && (
-              <div style={{ marginBottom: 8 }}>
-                <button
-                  type="button"
+            {/* Android Native APK İndirme Butonu (Sadece Web/PWA üzerinde gösterilir) */}
+            {!nativeBridge.isNative() && (
+              <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <a
+                  href="/Spor-Defterim.apk"
+                  download="Spor-Defterim.apk"
                   onClick={() => {
+                    sounds.playPop();
                     setIsOpen(false);
-                    promptInstall();
                   }}
                   className="burger-menu-item"
                   style={{
-                    border: '1px solid rgba(255, 71, 87, 0.35)',
-                    background: 'linear-gradient(135deg, rgba(255, 71, 87, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%)'
+                    textDecoration: 'none',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(56, 189, 248, 0.08) 100%)'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div className="burger-item-icon" style={{ background: 'var(--accent)', color: '#ffffff' }}>
+                    <div className="burger-item-icon" style={{ background: 'var(--muscle-emerald)', color: '#0b0f17' }}>
                       <Smartphone size={16} />
                     </div>
                     <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>Uygulamayı Cihaza Yükle</span>
-                        <span style={{ fontSize: 9.5, background: 'var(--muscle-emerald)', color: '#000', padding: '1px 5px', borderRadius: 4, fontWeight: 800 }}>PWA</span>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>Android APK İndir</span>
+                        <span style={{ fontSize: 9.5, background: 'var(--muscle-emerald)', color: '#000', padding: '1px 5px', borderRadius: 4, fontWeight: 900 }}>NATIVE</span>
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ana ekrana ekle, internetsiz kullan</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tam donanım & titreşim destekli APK</div>
                     </div>
                   </div>
-                  <Download size={15} color="var(--accent)" />
-                </button>
+                  <Download size={15} color="var(--muscle-emerald)" />
+                </a>
+
+                {!isInstalled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      promptInstall();
+                    }}
+                    className="burger-menu-item"
+                    style={{
+                      border: '1px solid rgba(255, 71, 87, 0.35)',
+                      background: 'linear-gradient(135deg, rgba(255, 71, 87, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div className="burger-item-icon" style={{ background: 'var(--accent)', color: '#ffffff' }}>
+                        <Smartphone size={16} />
+                      </div>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>Web Kısayolu Yükle</span>
+                          <span style={{ fontSize: 9.5, background: 'rgba(255, 255, 255, 0.18)', color: '#fff', padding: '1px 5px', borderRadius: 4, fontWeight: 800 }}>PWA</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tarayıcı üzerinden ana ekrana ekle</div>
+                      </div>
+                    </div>
+                    <Download size={15} color="var(--accent)" />
+                  </button>
+                )}
               </div>
             )}
 
