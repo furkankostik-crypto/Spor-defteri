@@ -34,7 +34,6 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     setIsProfileModalOpen,
     isAICoachOpen,
     setIsAICoachOpen,
-    showToast
   } = useWorkout();
 
   const { isAuthModalOpen, setIsAuthModalOpen } = useAuth();
@@ -62,7 +61,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
    *   call `window.history.forward()` (or re-arm) to step right back onto `__spor_guard`!
    *   This recycles the existing user-activated history entry infinitely so the app never closes.
    */
-  const armSentinelGuardOnGesture = useCallback(() => {
+  const armSentinelGuard = useCallback(() => {
     if (isExitingRef.current || isRestoringSentinelRef.current) return;
 
     try {
@@ -220,6 +219,9 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       const currentState = window.history.state;
       if (!currentState || (!currentState.__spor_root && !currentState.__spor_guard)) {
         window.history.replaceState({ __spor_root: true, __spor_guard: false }, '');
+        window.history.pushState({ __spor_guard: true, depth: 1 }, '');
+      } else if (!currentState.__spor_guard) {
+        window.history.pushState({ __spor_guard: true, depth: 1 }, '');
       }
     } catch {
       // Ignore
@@ -227,7 +229,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
 
     const handleUserGesture = () => {
       if (isExitingRef.current) return;
-      armSentinelGuardOnGesture();
+      armSentinelGuard();
     };
 
     // Capture phase on pointerdown/touchstart/click/keydown ensures the guard is armed
@@ -243,7 +245,7 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       window.removeEventListener('click', handleUserGesture, { capture: true });
       window.removeEventListener('keydown', handleUserGesture, { capture: true });
     };
-  }, [armSentinelGuardOnGesture]);
+  }, [armSentinelGuard]);
 
   // Listen to browser / hardware back button (`popstate` + Android WebView `backbutton`)
   useEffect(() => {
@@ -316,8 +318,8 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
     sounds.playPop();
     isExitingRef.current = false;
     setIsExitModalOpen(false);
-    armSentinelGuardOnGesture();
-  }, [armSentinelGuardOnGesture]);
+    armSentinelGuard();
+  }, [armSentinelGuard]);
 
   const confirmExit = useCallback(() => {
     sounds.playPop();
@@ -341,17 +343,13 @@ export const BackNavigationProvider: React.FC<{ children: React.ReactNode }> = (
       window.history.back();
     }
 
-    // 3. Fallback for standalone PWAs where OS requires hardware back/home press at root index
+    // 3. Fallback: navigate away immediately so user doesn't have to press home/back button again!
     setTimeout(() => {
-      if (document.visibilityState === 'visible') {
-        showToast({
-          title: 'Çıkış Onaylandı',
-          description: 'Uygulamayı kapatmak için telefonunuzun geri veya ana ekran tuşuna dokunabilirsiniz.',
-          type: 'info'
-        });
-      }
-    }, 300);
-  }, [showToast]);
+      try {
+        window.location.replace('about:blank');
+      } catch {}
+    }, 120);
+  }, []);
 
   return (
     <BackNavigationContext.Provider
