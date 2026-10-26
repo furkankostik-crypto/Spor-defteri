@@ -48,8 +48,8 @@ export const SetRow: React.FC<SetRowProps> = ({
   }, [isRowActive, activePickerField]);
 
   const gridColumns = isDuration
-    ? (onToggleCompleted ? '32px 1fr 36px 30px' : '38px 1fr 38px')
-    : (onToggleCompleted ? '32px 1fr 1fr 36px 30px' : '38px 1fr 1fr 38px');
+    ? (onToggleCompleted ? '28px 1fr 34px 28px' : '34px 1fr 34px')
+    : (onToggleCompleted ? '28px 1fr 1fr 34px 28px' : '34px 1fr 1fr 34px');
 
   return (
     <div
@@ -57,21 +57,21 @@ export const SetRow: React.FC<SetRowProps> = ({
       style={{
         display: 'grid',
         gridTemplateColumns: gridColumns,
-        gap: 7,
+        gap: 6,
         alignItems: 'center',
         background: completed
           ? 'rgba(16, 185, 129, 0.12)'
           : isRowActive
           ? `linear-gradient(90deg, ${accentColor}16 0%, rgba(15, 23, 42, 0.78) 100%)`
           : 'rgba(15, 23, 42, 0.55)',
-        padding: '6px 8px',
+        padding: '4px 6px',
         borderRadius: 'var(--radius-md)',
         border: completed
           ? '1px solid rgba(16, 185, 129, 0.35)'
           : isRowActive
           ? `1px solid ${accentColor}65`
           : '1px solid rgba(255, 255, 255, 0.05)',
-        marginBottom: 7,
+        marginBottom: 5,
         transition: 'all 0.2s'
       }}
     >
@@ -79,12 +79,12 @@ export const SetRow: React.FC<SetRowProps> = ({
       <div
         style={{
           textAlign: 'center',
-          fontSize: 12.5,
+          fontSize: 12,
           fontWeight: 800,
           color: isRowActive ? '#ffffff' : 'var(--text-muted)',
           background: isRowActive ? `${accentColor}30` : 'rgba(255, 255, 255, 0.04)',
           borderRadius: 'var(--radius-sm)',
-          height: 42,
+          height: 38,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -97,7 +97,7 @@ export const SetRow: React.FC<SetRowProps> = ({
 
       {isDuration ? (
         /* Duration Input (in seconds) with -15s / +15s quick buttons & smart picker trigger */
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <button
             type="button"
             onClick={() => {
@@ -105,13 +105,13 @@ export const SetRow: React.FC<SetRowProps> = ({
               onChange('reps', Math.max(0, (reps || 0) - 15));
             }}
             style={{
-              height: 42,
-              padding: '0 8px',
+              height: 38,
+              padding: '0 7px',
               borderRadius: 'var(--radius-sm)',
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               color: 'var(--text-muted)',
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: 800,
               cursor: 'pointer',
               flexShrink: 0
@@ -130,8 +130,8 @@ export const SetRow: React.FC<SetRowProps> = ({
               }}
               style={{
                 flex: 1,
-                height: 42,
-                padding: '0 10px',
+                height: 38,
+                padding: '0 8px',
                 borderRadius: 'var(--radius-sm)',
                 background: isRepsActive ? `${accentColor}1c` : 'rgba(10, 16, 28, 0.85)',
                 border: isRepsActive
@@ -141,7 +141,7 @@ export const SetRow: React.FC<SetRowProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 5,
+                gap: 4,
                 cursor: 'pointer',
                 transition: 'all 0.2s'
               }}
@@ -149,7 +149,7 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   fontWeight: 800,
-                  fontSize: 15.5,
+                  fontSize: 15,
                   color: reps > 0 ? '#ffffff' : 'var(--text-dim)'
                 }}
               >
@@ -157,7 +157,7 @@ export const SetRow: React.FC<SetRowProps> = ({
               </span>
               <span
                 style={{
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: 700,
                   color: isRepsActive ? accentColor : 'var(--text-dim)'
                 }}
@@ -192,11 +192,11 @@ export const SetRow: React.FC<SetRowProps> = ({
                 placeholder="0"
                 className="form-input"
                 style={{
-                  padding: '8px 46px 8px 10px',
+                  padding: '6px 42px 6px 8px',
                   textAlign: 'center',
                   fontWeight: 800,
-                  fontSize: 15,
-                  height: 42,
+                  fontSize: 14.5,
+                  height: 38,
                   background: 'rgba(10, 16, 28, 0.85)',
                   borderColor: repsFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
                   boxShadow: repsFocused ? `0 0 0 3px ${accentColor}25` : 'none',
@@ -207,10 +207,10 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   position: 'absolute',
-                  right: 10,
+                  right: 8,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: 700,
                   color: repsFocused ? accentColor : 'var(--text-dim)',
                   pointerEvents: 'none'
@@ -228,13 +228,13 @@ export const SetRow: React.FC<SetRowProps> = ({
               onChange('reps', Math.min(999, (reps || 0) + 15));
             }}
             style={{
-              height: 42,
-              padding: '0 8px',
+              height: 38,
+              padding: '0 7px',
               borderRadius: 'var(--radius-sm)',
               background: 'rgba(56, 189, 248, 0.12)',
               border: '1px solid rgba(56, 189, 248, 0.3)',
               color: 'var(--cyan)',
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: 800,
               cursor: 'pointer',
               flexShrink: 0
@@ -257,8 +257,8 @@ export const SetRow: React.FC<SetRowProps> = ({
               style={{
                 position: 'relative',
                 width: '100%',
-                height: 42,
-                padding: '0 26px 0 10px',
+                height: 38,
+                padding: '0 24px 0 8px',
                 borderRadius: 'var(--radius-sm)',
                 background: isWeightActive ? `${accentColor}1c` : 'rgba(10, 16, 28, 0.85)',
                 border: isWeightActive
@@ -276,7 +276,7 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   fontWeight: 800,
-                  fontSize: 15.5,
+                  fontSize: 15,
                   color: weight > 0 ? '#ffffff' : 'var(--text-dim)'
                 }}
               >
@@ -285,10 +285,10 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   position: 'absolute',
-                  right: 8,
+                  right: 7,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: 700,
                   color: isWeightActive ? accentColor : 'var(--text-dim)',
                   transition: 'color 0.2s'
@@ -324,11 +324,11 @@ export const SetRow: React.FC<SetRowProps> = ({
                 placeholder="0"
                 className="form-input"
                 style={{
-                  padding: '8px 28px 8px 10px',
+                  padding: '6px 26px 6px 8px',
                   textAlign: 'center',
                   fontWeight: 800,
-                  fontSize: 15,
-                  height: 42,
+                  fontSize: 14.5,
+                  height: 38,
                   background: 'rgba(10, 16, 28, 0.85)',
                   borderColor: weightFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
                   boxShadow: weightFocused ? `0 0 0 3px ${accentColor}25` : 'none',
@@ -339,10 +339,10 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   position: 'absolute',
-                  right: 8,
+                  right: 7,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: 700,
                   color: weightFocused ? accentColor : 'var(--text-dim)',
                   pointerEvents: 'none'
@@ -364,8 +364,8 @@ export const SetRow: React.FC<SetRowProps> = ({
               style={{
                 position: 'relative',
                 width: '100%',
-                height: 42,
-                padding: '0 36px 0 10px',
+                height: 38,
+                padding: '0 32px 0 8px',
                 borderRadius: 'var(--radius-sm)',
                 background: isRepsActive ? `${accentColor}1c` : 'rgba(10, 16, 28, 0.85)',
                 border: isRepsActive
@@ -383,7 +383,7 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   fontWeight: 800,
-                  fontSize: 15.5,
+                  fontSize: 15,
                   color: reps > 0 ? '#ffffff' : 'var(--text-dim)'
                 }}
               >
@@ -392,10 +392,10 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   position: 'absolute',
-                  right: 8,
+                  right: 7,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  fontSize: 10,
+                  fontSize: 9.5,
                   fontWeight: 700,
                   color: isRepsActive ? accentColor : 'var(--text-dim)',
                   transition: 'color 0.2s'
@@ -431,11 +431,11 @@ export const SetRow: React.FC<SetRowProps> = ({
                 placeholder="0"
                 className="form-input"
                 style={{
-                  padding: '8px 38px 8px 10px',
+                  padding: '6px 34px 6px 8px',
                   textAlign: 'center',
                   fontWeight: 800,
-                  fontSize: 15,
-                  height: 42,
+                  fontSize: 14.5,
+                  height: 38,
                   background: 'rgba(10, 16, 28, 0.85)',
                   borderColor: repsFocused ? accentColor : 'rgba(255, 255, 255, 0.12)',
                   boxShadow: repsFocused ? `0 0 0 3px ${accentColor}25` : 'none',
@@ -446,10 +446,10 @@ export const SetRow: React.FC<SetRowProps> = ({
               <span
                 style={{
                   position: 'absolute',
-                  right: 8,
+                  right: 7,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  fontSize: 10,
+                  fontSize: 9.5,
                   fontWeight: 700,
                   color: repsFocused ? accentColor : 'var(--text-dim)',
                   pointerEvents: 'none'
@@ -469,8 +469,8 @@ export const SetRow: React.FC<SetRowProps> = ({
             type="button"
             onClick={onToggleCompleted}
             style={{
-              width: 36,
-              height: 36,
+              width: 34,
+              height: 34,
               borderRadius: 'var(--radius-sm)',
               border: completed ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.18)',
               background: completed ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255, 255, 255, 0.05)',
@@ -484,7 +484,7 @@ export const SetRow: React.FC<SetRowProps> = ({
             }}
             title={completed ? 'Seti Geri Al' : 'Seti Tamamla'}
           >
-            <Check size={16} strokeWidth={completed ? 3 : 2} />
+            <Check size={15} strokeWidth={completed ? 3 : 2} />
           </button>
         </div>
       )}
@@ -505,8 +505,8 @@ export const SetRow: React.FC<SetRowProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 30,
-              height: 34,
+              width: 28,
+              height: 32,
               transition: 'all 0.2s'
             }}
             onMouseEnter={(e) => {
@@ -521,10 +521,10 @@ export const SetRow: React.FC<SetRowProps> = ({
             }}
             title="Seti Sil"
           >
-            <Trash2 size={13} />
+            <Trash2 size={12} />
           </button>
         ) : (
-          <div style={{ width: 30, height: 34 }} />
+          <div style={{ width: 28, height: 32 }} />
         )}
       </div>
     </div>

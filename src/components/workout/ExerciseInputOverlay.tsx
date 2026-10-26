@@ -275,7 +275,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           style={{
             position: 'relative',
             width: '100%',
-            height: activePicker ? 'clamp(102px, 15vh, 128px)' : 'clamp(220px, 32vh, 285px)',
+            height: activePicker ? 'clamp(90px, 13vh, 115px)' : 'clamp(180px, 26vh, 235px)',
             background: 'radial-gradient(circle at 50% 35%, rgba(30, 41, 59, 0.7) 0%, rgba(10, 15, 26, 0.98) 100%)',
             overflow: 'hidden',
             flexShrink: 0,
@@ -534,30 +534,41 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '16px 18px 20px',
+            padding: '12px 14px 14px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 12
+            gap: 8
           }}
         >
           {/* Exercise Title and Muscle Activation Breakdown */}
           <div>
             <h2
               style={{
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: 900,
                 color: '#ffffff',
                 letterSpacing: '-0.02em',
-                margin: '0 0 6px',
-                lineHeight: 1.2
+                margin: '0 0 5px',
+                lineHeight: 1.15
               }}
             >
               {exercise.name}
             </h2>
 
-            {/* Muscle Contribution Chips */}
+            {/* Muscle Contribution Chips - Single Compact Scrollable Row */}
             {exercise.muscles && exercise.muscles.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: 5,
+                  overflowX: 'auto',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                  paddingBottom: 2
+                }}
+              >
                 {exercise.muscles.map((act) => {
                   const actMeta = muscleMetadata[act.muscle];
                   const isPrimary = act.role === 'primary';
@@ -566,19 +577,21 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                     <span
                       key={act.muscle}
                       style={{
-                        fontSize: 10.5,
+                        fontSize: 10,
                         fontWeight: 700,
-                        padding: '3px 8px',
+                        padding: '2.5px 7px',
                         borderRadius: 'var(--radius-sm)',
                         background: isPrimary ? `${color}20` : 'rgba(255, 255, 255, 0.05)',
                         color: isPrimary ? color : 'var(--text-muted)',
                         border: `1px solid ${isPrimary ? `${color}55` : 'rgba(255, 255, 255, 0.08)'}`,
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 4
+                        gap: 3.5,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0
                       }}
                     >
-                      <span>{actMeta?.icon || '💪'}</span>
+                      <span style={{ fontSize: 11 }}>{actMeta?.icon || '💪'}</span>
                       <span>{actMeta?.name || act.muscle} %{Math.round(act.ratio * 100)}</span>
                     </span>
                   );
@@ -594,29 +607,33 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 background: 'rgba(15, 23, 42, 0.65)',
                 border: '1px solid rgba(56, 189, 248, 0.22)',
                 borderRadius: 'var(--radius-md)',
-                padding: '9px 12px',
+                padding: '6px 10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: 10
+                gap: 8
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                <History size={14} color="var(--cyan)" style={{ flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                    Son Kayıt
-                  </div>
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
-                    <span>{prevSummary.text}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                <History size={13} color="var(--cyan)" style={{ flexShrink: 0 }} />
+                <div style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0 }}>
+                      Son:
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {prevSummary.text}
+                    </span>
                     {prevSummary.subtext && (
-                      <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)' }}>{prevSummary.subtext}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {prevSummary.subtext}
+                      </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                 <button
                   type="button"
                   onClick={handleCopyPreviousWeights}
@@ -625,19 +642,20 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                     border: '1px solid rgba(56, 189, 248, 0.35)',
                     borderRadius: 'var(--radius-sm)',
                     color: 'var(--cyan)',
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontWeight: 800,
-                    padding: '6px 10px',
+                    padding: '4px 8px',
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 4,
+                    gap: 3.5,
+                    whiteSpace: 'nowrap',
                     transition: 'all 0.15s'
                   }}
                   title="Geçmiş ağırlıkları kutulara doldur"
                 >
                   <Sparkles size={11} />
-                  <span>Son İdmanı Doldur</span>
+                  <span>Doldur</span>
                 </button>
 
                 {suggestionSummary && (
@@ -652,13 +670,14 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                       border: '1px solid rgba(16, 185, 129, 0.35)',
                       borderRadius: 'var(--radius-sm)',
                       color: '#34d399',
-                      fontSize: 11,
+                      fontSize: 10.5,
                       fontWeight: 800,
-                      padding: '6px 9px',
+                      padding: '4px 7px',
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 4,
+                      gap: 3.5,
+                      whiteSpace: 'nowrap',
                       transition: 'all 0.15s'
                     }}
                     title={`Hedef öneri: ${suggestionSummary.text} ${suggestionSummary.subtext || ''}`}
@@ -672,19 +691,19 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           ) : null}
 
           {/* Sets Table Section */}
-          <div style={{ marginTop: 2 }}>
+          <div style={{ marginTop: 0 }}>
             {/* Table Header */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: isDuration ? '32px 1fr 36px 30px' : '32px 1fr 1fr 36px 30px',
-                gap: 7,
-                fontSize: 11,
+                gridTemplateColumns: isDuration ? '30px 1fr 34px 28px' : '30px 1fr 1fr 34px 28px',
+                gap: 6,
+                fontSize: 10.5,
                 fontWeight: 800,
                 letterSpacing: '0.04em',
                 color: 'var(--text-dim)',
                 textAlign: 'center',
-                padding: '0 8px 6px',
+                padding: '0 6px 4px',
                 textTransform: 'uppercase'
               }}
             >
@@ -758,21 +777,21 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               }}
               style={{
                 width: '100%',
-                height: 44,
+                height: 38,
                 background: 'rgba(255, 255, 255, 0.03)',
                 border: '1px dashed rgba(255, 255, 255, 0.2)',
                 borderRadius: 'var(--radius-md)',
                 color: 'var(--text-main)',
-                fontSize: 13,
+                fontSize: 12.5,
                 fontWeight: 800,
-                padding: '0 12px',
+                padding: '0 10px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 7,
-                marginTop: 4,
-                marginBottom: 6,
+                gap: 6,
+                marginTop: 2,
+                marginBottom: 4,
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
@@ -786,13 +805,13 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 e.currentTarget.style.color = 'var(--text-main)';
               }}
             >
-              <Plus size={16} color="var(--muscle-emerald)" />
+              <Plus size={15} color="var(--muscle-emerald)" />
               <span>+ Yeni Set Ekle</span>
             </button>
           </div>
 
           {/* Bottom Actions: Active summary + Save/Close */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginTop: 2 }}>
             {activeSets.length > 0 && (
               <button
                 type="button"
@@ -803,8 +822,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 className="btn btn-secondary"
                 title="Bu egzersizin setlerini sıfırla"
                 style={{
-                  padding: '13px',
-                  height: 48,
+                  padding: '10px',
+                  height: 44,
                   borderRadius: 'var(--radius-md)',
                   color: 'var(--text-dim)',
                   display: 'flex',
@@ -812,7 +831,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                   justifyContent: 'center'
                 }}
               >
-                <RotateCcw size={16} />
+                <RotateCcw size={15} />
               </button>
             )}
 
@@ -830,22 +849,22 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               className="btn btn-primary"
               style={{
                 flex: 1,
-                height: 48,
-                padding: '12px 18px',
+                height: 44,
+                padding: '10px 14px',
                 borderRadius: 'var(--radius-md)',
-                fontSize: 14.5,
+                fontSize: 13.5,
                 fontWeight: 800,
-                gap: 8,
+                gap: 7,
                 background: isExerciseFullyCompleted || activeSets.length > 0
                   ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
                   : 'linear-gradient(135deg, var(--accent), #e11d48)',
                 boxShadow: isExerciseFullyCompleted || activeSets.length > 0
-                  ? '0 6px 20px rgba(16, 185, 129, 0.4)' 
-                  : '0 6px 20px rgba(255, 71, 87, 0.4)',
+                  ? '0 4px 16px rgba(16, 185, 129, 0.35)' 
+                  : '0 4px 16px rgba(255, 71, 87, 0.35)',
                 transition: 'all 0.2s ease'
               }}
             >
-              <Check size={18} strokeWidth={2.5} />
+              <Check size={16} strokeWidth={2.5} />
               <span>
                 {isExerciseFullyCompleted
                   ? `✓ Tamamlandı (${completedSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} ${isDuration ? 'sn' : 'kg'})`
