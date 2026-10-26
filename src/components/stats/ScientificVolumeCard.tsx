@@ -1,197 +1,282 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
 import { calculateWeeklyVolumeLandmarks } from '../../utils/scientificCalculations';
+import { calculateProportionalMuscleVolume } from '../../utils/calculations';
 import { AnatomyIcon } from '../../data/anatomyIcons';
-import { 
-  Activity, 
-  Info 
-} from 'lucide-react';
+import { MuscleGroup } from '../../types/workout';
+import { sounds } from '../../utils/audio';
+import { Activity, Info, ChevronDown, ChevronUp } from 'lucide-react';
 
 export const ScientificVolumeCard: React.FC = () => {
   const { workouts, allExercises } = useWorkout();
+  const [mode, setMode] = useState<'weekly' | 'tonnage'>('weekly');
   const [showInfo, setShowInfo] = useState(false);
-  const volumeStatuses = calculateWeeklyVolumeLandmarks(workouts, allExercises);
+  const [expanded, setExpanded] = useState(false);
 
-  // Summary counts
-  const mavCount = volumeStatuses.filter(v => v.landmark === 'mav').length;
-  const mevCount = volumeStatuses.filter(v => v.landmark === 'mev').length;
-  const underCount = volumeStatuses.filter(v => v.landmark === 'under_mev').length;
+  const volumeStatuses = useMemo(
+    () => calculateWeeklyVolumeLandmarks(workouts, allExercises),
+    [workouts, allExercises]
+  );
+
+  const muscleVolume = useMemo(
+    () => calculateProportionalMuscleVolume(workouts, allExercises),
+    [workouts, allExercises]
+  );
+
+  const tonnageList = useMemo(() => {
+    const items: { muscle: MuscleGroup; label: string; volume: number }[] = [
+      { muscle: 'chest', label: 'Göğüs', volume: muscleVolume['chest'] || 0 },
+      { muscle: 'back', label: 'Sırt & Kanat', volume: muscleVolume['back'] || 0 },
+      { muscle: 'shoulder', label: 'Omuz', volume: muscleVolume['shoulder'] || 0 },
+      { muscle: 'biceps', label: 'Biceps', volume: muscleVolume['biceps'] || 0 },
+      { muscle: 'triceps', label: 'Triceps', volume: muscleVolume['triceps'] || 0 },
+      { muscle: 'quads', label: 'Ön Bacak', volume: muscleVolume['quads'] || 0 },
+      { muscle: 'hamstring', label: 'Arka Bacak', volume: muscleVolume['hamstring'] || 0 },
+      { muscle: 'glutes', label: 'Kalça', volume: muscleVolume['glutes'] || 0 },
+      { muscle: 'calves', label: 'Kalf', volume: muscleVolume['calves'] || 0 },
+      { muscle: 'abs', label: 'Karın', volume: muscleVolume['abs'] || 0 }
+    ];
+    return items.sort((a, b) => b.volume - a.volume);
+  }, [muscleVolume]);
+
+  const maxMuscleVol = Math.max(...tonnageList.map((m) => m.volume), 1);
+
+  const sortedWeekly = useMemo(() => {
+    return [...volumeStatuses].sort((a, b) => b.weeklySets - a.weeklySets);
+  }, [volumeStatuses]);
+
+  const visibleWeekly = expanded ? sortedWeekly : sortedWeekly.slice(0, 5);
+  const visibleTonnage = expanded ? tonnageList : tonnageList.slice(0, 5);
 
   return (
-    <div className="card" style={{ padding: '16px', marginBottom: 16 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+    <div className="card" style={{ padding: '14px', marginBottom: 14 }}>
+      {/* Header with Mode Switcher */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 12,
+          gap: 8
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div 
-            style={{ 
-              width: 32, 
-              height: 32, 
-              borderRadius: 'var(--radius-sm)', 
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--muscle-emerald)'
-            }}
-          >
-            <Activity size={17} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: 15, fontWeight: 800, color: '#ffffff', margin: 0 }}>
-              Haftalık Hipertrofi Hacmi (RP)
-            </h3>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              Bilimsel kas gelişim aralıkları (MEV / MAV / MRV)
-            </div>
-          </div>
+          <Activity size={16} color="var(--muscle-emerald)" />
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: '#ffffff', margin: 0 }}>
+            Kas Hacmi & Dağılımı
+          </h3>
+          {mode === 'weekly' && (
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playPop();
+                setShowInfo((p) => !p);
+              }}
+              aria-label="Haftalık set hedefleri hakkında bilgi"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: 2
+              }}
+            >
+              <Info size={13} />
+            </button>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowInfo(!showInfo)}
+        {/* Mode Toggle Pills */}
+        <div
           style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-dim)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            fontSize: 11,
-            fontWeight: 600
+            display: 'inline-flex',
+            background: 'var(--input-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: 2,
+            gap: 2
           }}
         >
-          <Info size={14} />
-          <span>{showInfo ? 'Kapat' : 'Nedir?'}</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playPop();
+              setMode('weekly');
+            }}
+            style={{
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: 'none',
+              background: mode === 'weekly' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+              color: mode === 'weekly' ? 'var(--muscle-emerald)' : 'var(--text-muted)',
+              fontSize: 10.5,
+              fontWeight: 800,
+              cursor: 'pointer'
+            }}
+          >
+            Haftalık Set
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playPop();
+              setMode('tonnage');
+            }}
+            style={{
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: 'none',
+              background: mode === 'tonnage' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+              color: mode === 'tonnage' ? 'var(--cyan)' : 'var(--text-muted)',
+              fontSize: 10.5,
+              fontWeight: 800,
+              cursor: 'pointer'
+            }}
+          >
+            Toplam Tonaj
+          </button>
+        </div>
       </div>
 
-      {/* Info explanation accordion */}
-      {showInfo && (
-        <div 
-          style={{ 
-            background: 'rgba(15, 23, 42, 0.8)', 
+      {/* Optional Compact Info Note */}
+      {showInfo && mode === 'weekly' && (
+        <div
+          style={{
+            background: 'rgba(15, 23, 42, 0.8)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 'var(--radius-md)',
-            padding: '10px 12px',
-            marginBottom: 12,
-            fontSize: 11.5,
+            borderRadius: 'var(--radius-sm)',
+            padding: '8px 10px',
+            marginBottom: 10,
+            fontSize: 11,
             color: 'var(--text-muted)',
-            lineHeight: 1.5
+            lineHeight: 1.45
           }}
         >
-          <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: 4 }}>
-            🔬 Dr. Mike Israetel Hacim Standartları:
-          </div>
-          <div>• <strong>MEV (6-10 set/hafta):</strong> Minimum Etkili Hacim. Kas kütlesini korur ve temel adaptasyon sağlar.</div>
-          <div>• <strong>MAV (12-20 set/hafta):</strong> Maksimum Adaptif Hacim (Altın Aralık). En hızlı kas hipertrofisini sağlar.</div>
-          <div>• <strong>MRV (22+ set/hafta):</strong> Maksimum Toparlanabilir Hacim. Fazlası aşırı yorgunluk ve performans düşüşü yaratır.</div>
+          <strong>Haftalık Hedef:</strong> Kas koruma için <strong>6-10 set (Etkili)</strong>, maksimum büyüme için <strong>12-20 set (Optimal)</strong> önerilir.
         </div>
       )}
 
-      {/* Metric summary badges */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
-        <div 
-          style={{
-            padding: '8px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(251, 191, 36, 0.1)',
-            border: '1px solid rgba(251, 191, 36, 0.25)',
-            textAlign: 'center'
-          }}
-        >
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)' }}>MAV (Optimal)</div>
-          <div style={{ fontSize: 16, fontWeight: 900, color: '#ffffff' }}>{mavCount} Kas</div>
-        </div>
+      {/* List of Muscles */}
+      {mode === 'weekly' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {visibleWeekly.map((item) => {
+            const pct = Math.min(100, Math.round((item.weeklySets / 20) * 100));
+            return (
+              <div key={item.muscle}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: 12,
+                    marginBottom: 4
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <AnatomyIcon muscle={item.muscle} size={16} />
+                    <span style={{ fontWeight: 600, color: '#ffffff' }}>{item.muscleName}</span>
+                  </div>
 
-        <div 
-          style={{
-            padding: '8px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(16, 185, 129, 0.1)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            textAlign: 'center'
-          }}
-        >
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muscle-emerald)' }}>MEV (Etkili)</div>
-          <div style={{ fontSize: 16, fontWeight: 900, color: '#ffffff' }}>{mevCount} Kas</div>
-        </div>
-
-        <div 
-          style={{
-            padding: '8px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(100, 116, 139, 0.1)',
-            border: '1px solid rgba(100, 116, 139, 0.25)',
-            textAlign: 'center'
-          }}
-        >
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>Geliştirilmeli</div>
-          <div style={{ fontSize: 16, fontWeight: 900, color: '#ffffff' }}>{underCount} Kas</div>
-        </div>
-      </div>
-
-      {/* List of muscles with volume bars */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {volumeStatuses.map((item) => {
-          // Progress bar percentage (max 24 sets = 100%)
-          const pct = Math.min(100, Math.round((item.weeklySets / 22) * 100));
-
-          return (
-            <div 
-              key={item.muscle}
-              style={{
-                background: 'rgba(15, 23, 42, 0.45)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '8px 10px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <AnatomyIcon muscle={item.muscle} size={15} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>{item.muscleName}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 800,
+                        padding: '1px 5px',
+                        borderRadius: 4,
+                        background: `${item.landmarkColor}18`,
+                        color: item.landmarkColor
+                      }}
+                    >
+                      {item.landmarkLabel}
+                    </span>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: '#ffffff', minWidth: 38, textAlign: 'right' }}>
+                      {item.weeklySets} set
+                    </span>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span 
-                    style={{ 
-                      fontSize: 10, 
-                      fontWeight: 800, 
-                      padding: '2px 6px', 
-                      borderRadius: 'var(--radius-sm)',
-                      background: `${item.landmarkColor}20`,
-                      color: item.landmarkColor,
-                      border: `1px solid ${item.landmarkColor}40`
+                <div className="progress-bar-track" style={{ height: 5 }}>
+                  <div
+                    className="progress-bar-fill"
+                    style={{
+                      width: `${item.weeklySets > 0 ? Math.max(6, pct) : 0}%`,
+                      background: item.landmarkColor
                     }}
-                  >
-                    {item.landmarkLabel}
-                  </span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#ffffff' }}>
-                    {item.weeklySets} set
-                  </span>
+                  />
                 </div>
               </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {visibleTonnage.map((item) => {
+            const pct = Math.round((item.volume / maxMuscleVol) * 100);
+            return (
+              <div key={item.muscle}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: 12,
+                    marginBottom: 4
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <AnatomyIcon muscle={item.muscle} size={16} />
+                    <span style={{ fontWeight: 600, color: '#ffffff' }}>{item.label}</span>
+                  </div>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: 11.5 }}>
+                    {item.volume.toLocaleString()} kg
+                  </span>
+                </div>
 
-              {/* Progress track */}
-              <div className="progress-bar-track" style={{ height: 6, margin: '4px 0 2px' }}>
-                <div 
-                  className="progress-bar-fill" 
-                  style={{ 
-                    width: `${Math.max(5, pct)}%`,
-                    background: item.landmarkColor
-                  }} 
-                />
+                <div className="progress-bar-track" style={{ height: 5 }}>
+                  <div
+                    className="progress-bar-fill"
+                    style={{
+                      width: `${pct}%`,
+                      background: item.volume > 0 ? 'linear-gradient(90deg, #0284c7, #38bdf8)' : 'transparent'
+                    }}
+                  />
+                </div>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div style={{ fontSize: 10.5, color: 'var(--text-dim)', marginTop: 2 }}>
-                {item.feedback}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Expand / Collapse Toggle */}
+      <button
+        type="button"
+        onClick={() => {
+          sounds.playPop();
+          setExpanded((p) => !p);
+        }}
+        style={{
+          width: '100%',
+          marginTop: 10,
+          padding: '6px 0 2px',
+          background: 'none',
+          border: 'none',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          color: 'var(--text-muted)',
+          fontSize: 11,
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4
+        }}
+      >
+        <span>{expanded ? 'Daha Az Göster' : 'Tüm Kas Bölgelerini Gör (10)'}</span>
+        {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
     </div>
   );
 };

@@ -8,30 +8,17 @@ export const Confetti: React.FC = () => {
   useEffect(() => {
     if (!confettiTrigger) return;
 
-    // Trigger celebration fireworks
-    const end = Date.now() + 1500;
-    const colors = ['#ff4757', '#ffd700', '#10b981', '#38bdf8', '#ff6b81'];
-
-    (function frame() {
-      confetti({
-        particleCount: 4,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.7 },
-        colors: colors
-      });
-      confetti({
-        particleCount: 4,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.7 },
-        colors: colors
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    })();
+    // Ekranı boğmayan, çok hafif ve minimal tek seferlik mikro kutlama efekti
+    confetti({
+      particleCount: 22,
+      spread: 45,
+      startVelocity: 16,
+      origin: { x: 0.5, y: 0.08 },
+      scalar: 0.65,
+      ticks: 60,
+      colors: ['#ff4757', '#ffd700', '#10b981', '#38bdf8', '#ff6b81'],
+      disableForReducedMotion: true
+    });
   }, [confettiTrigger]);
 
   return null;

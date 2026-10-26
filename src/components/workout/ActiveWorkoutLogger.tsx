@@ -3,6 +3,7 @@ import { useWorkout } from '../../context/WorkoutContext';
 import { useBackButton } from '../../context/BackNavigationContext';
 import { ExerciseDefinition, SplitType, MuscleGroup } from '../../types/workout';
 import { ExerciseSquareCard } from './ExerciseSquareCard';
+import { CompletedExerciseRow } from './CompletedExerciseRow';
 import { ExerciseInputOverlay } from './ExerciseInputOverlay';
 import { AnatomicalBodyMap } from './AnatomicalBodyMap';
 import { MuscleDetailView } from './MuscleDetailView';
@@ -18,12 +19,13 @@ import {
   PlusCircle, 
   Search, 
   X, 
-  Timer as TimerIcon,
+  Timer as TimerIcon, 
   Trash2,
   Minimize2,
   Minus,
   Map,
-  ListFilter
+  ListFilter,
+  CheckCircle2
 } from 'lucide-react';
 
 interface ActiveWorkoutLoggerProps {
@@ -38,7 +40,6 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
     allExercises, 
     workouts, 
     showToast,
-    triggerConfetti,
     activeSessionStartTime,
     setIsWorkoutMinimized,
     discardActiveWorkout,
@@ -58,9 +59,10 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
       isDone: boolean;
       isStarted: boolean;
       lastWeight?: number;
+      orderIndex: number;
     }[] = [];
 
-    activeExerciseIds.forEach(id => {
+    activeExerciseIds.forEach((id, idx) => {
       const exercise = allExercises.find(e => e.id === id);
       if (!exercise) return;
       const isDur = isDurationExercise(exercise);
@@ -80,12 +82,18 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
         completedSets,
         isDone,
         isStarted,
-        lastWeight
+        lastWeight,
+        orderIndex: idx + 1
       });
     });
 
     return list;
   }, [activeExerciseIds, draft.exerciseSets, allExercises, workouts]);
+
+  // Separate uncompleted/in-progress movements and completed movements
+  const uncompletedExercises = useMemo(() => activeExercises.filter(e => !e.isDone), [activeExercises]);
+  const completedExercises = useMemo(() => activeExercises.filter(e => e.isDone), [activeExercises]);
+
 
   // Which exercise is opened in the rich 3D input overlay
   const [selectedOverlayExercise, setSelectedOverlayExercise] = useState<ExerciseDefinition | null>(null);
@@ -219,9 +227,6 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
   const executeFinishWorkout = () => {
     const res = saveWorkout();
     if (res.success) {
-      if (!res.isPR) {
-        triggerConfetti();
-      }
       setIsFinishModalOpen(false);
       onBackToHub();
     }
@@ -336,9 +341,9 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
             type="button"
             onClick={handleMinimizeAndGoToHub}
             style={{
-              width: 30,
-              height: 28,
-              borderRadius: 5,
+              width: 34,
+              height: 32,
+              borderRadius: 6,
               background: 'transparent',
               border: 'none',
               color: 'var(--text-muted)',
@@ -358,7 +363,7 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
             }}
             title="Antrenmanı Küçült (Arka planda çalışmaya devam eder)"
           >
-            <Minus size={15} strokeWidth={2.5} />
+            <Minus size={16} strokeWidth={2.5} />
           </button>
 
           {/* 2. Finish Action Button */}
@@ -367,11 +372,11 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
               type="button"
               onClick={handleFinishWorkout}
               style={{
-                height: 28,
-                padding: '0 10px',
+                height: 32,
+                padding: '0 12px',
                 fontSize: 12,
                 fontWeight: 800,
-                borderRadius: 5,
+                borderRadius: 6,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
@@ -388,7 +393,7 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
               }}
               title={totalCompletedSets > 0 ? 'Antrenmanı Kaydet ve Bitir' : 'Antrenmanı Bitir'}
             >
-              <Check size={13} strokeWidth={3} />
+              <Check size={14} strokeWidth={3} />
               <span>Bitir</span>
             </button>
           )}
@@ -401,9 +406,9 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
               setIsCloseOverlayOpen(true);
             }}
             style={{
-              width: 30,
-              height: 28,
-              borderRadius: 5,
+              width: 34,
+              height: 32,
+              borderRadius: 6,
               background: 'transparent',
               border: 'none',
               color: 'var(--text-muted)',
@@ -423,7 +428,7 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
             }}
             title="Antrenmanı Kapat (İptal Et)"
           >
-            <X size={15} strokeWidth={2.5} />
+            <X size={16} strokeWidth={2.5} />
           </button>
         </div>
       </div>
@@ -433,45 +438,6 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
       {/* ========================================================= */}
       {totalExercises === 0 ? (
         <div style={{ animation: 'fadeIn 0.2s ease-out' }}>
-          {/* Header Banner: Visual Workout Creator */}
-          <div
-            className="card"
-            style={{
-              padding: '14px 16px',
-              borderRadius: 'var(--radius-lg)',
-              marginBottom: 12,
-              background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.28)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 'var(--radius-md)',
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--cyan)',
-                  flexShrink: 0
-                }}
-              >
-                <Dumbbell size={18} />
-              </div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 900, color: '#ffffff' }}>
-                  Antrenmanını Tasarla
-                </div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
-                  Vücut haritasından kas grubuna dokunarak veya bölge seçerek hareketlerini ekle.
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* 3-WAY VIEW MODE SWITCHER: 🗺️ Harita | 📋 Bölgeye Göre | 🔍 Arama */}
           <div
             style={{
@@ -678,20 +644,60 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
             <div>
               {/* Search Input */}
               <div style={{ position: 'relative', marginBottom: 10 }}>
-                <Search size={15} color="var(--text-dim)" style={{ position: 'absolute', left: 12, top: 12 }} />
+                <Search size={15} color="var(--text-dim)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && searchQuery) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSearchQuery('');
+                    } else if (e.key === 'Enter' && !e.nativeEvent.isComposing && (e as any).keyCode !== 229) {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  enterKeyHint="search"
                   placeholder="Hareket ara (örn: Bench, Squat, Curl)..."
                   className="form-input"
                   style={{
                     paddingLeft: 36,
-                    fontSize: 13,
+                    paddingRight: searchQuery ? 34 : 12,
+                    fontSize: 16,
                     height: 40,
                     borderRadius: 'var(--radius-md)'
                   }}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Aramayı temizle"
+                    style={{
+                      position: 'absolute',
+                      right: 6,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
               </div>
 
               {/* Category Filter Pills */}
@@ -815,38 +821,75 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
         /* CASE B: ACTIVE WORKOUT WITH EXERCISES IN PROGRESS         */
         /* ========================================================= */
         <div style={{ animation: 'fadeIn 0.2s ease-out' }}>
-          {/* Progress Dashboard Card */}
+          {/* Progress Dashboard Card (Compact) */}
           <div
             className="card"
             style={{
-              padding: '14px 16px',
-              borderRadius: 'var(--radius-lg)',
-              marginBottom: 16,
+              padding: '9px 12px',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 12,
               background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
               border: '1px solid rgba(255, 255, 255, 0.08)'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Dumbbell size={16} color="var(--accent)" />
-                <span style={{ fontSize: 13.5, fontWeight: 900, color: '#ffffff' }}>
-                  Aktif Antrenman İlerlemesi
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 6
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <Dumbbell size={14} color="var(--accent)" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff', whiteSpace: 'nowrap' }}>
+                  İlerleme
+                </span>
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: completedExercisesCount === totalExercises && totalExercises > 0 ? '#34d399' : 'var(--cyan)',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  ({completedExercisesCount}/{totalExercises} Hareket)
                 </span>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 800, color: completedExercisesCount === totalExercises && totalExercises > 0 ? '#34d399' : 'var(--cyan)' }}>
-                {completedExercisesCount} / {totalExercises} Hareket Tamamlandı
-              </span>
+
+              {/* Quick Numbers */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 11,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                  <strong style={{ color: '#ffffff' }}>{totalCompletedSets}</strong>
+                  <span style={{ color: 'var(--text-muted)' }}>Set</span>
+                </span>
+                <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>•</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#fbbf24' }}>
+                  <Flame size={12} color="#fbbf24" />
+                  <strong>{totalCompletedVolume.toLocaleString('tr-TR')} kg</strong>
+                </span>
+              </div>
             </div>
 
             {/* Progress Bar */}
             <div
               style={{
                 width: '100%',
-                height: 6,
+                height: 4,
                 borderRadius: 'var(--radius-full)',
                 background: 'rgba(255, 255, 255, 0.08)',
-                overflow: 'hidden',
-                marginBottom: 10
+                overflow: 'hidden'
               }}
             >
               <div
@@ -861,222 +904,128 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
                 }}
               />
             </div>
-
-            {/* Quick Numbers Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--text-muted)' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ color: '#10b981' }}>✓</span>
-                <strong style={{ color: '#ffffff' }}>{totalCompletedSets}</strong> Set Yapıldı
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Flame size={13} color="#fbbf24" />
-                <strong style={{ color: '#fbbf24' }}>{totalCompletedVolume.toLocaleString('tr-TR')} kg</strong> Hacim
-              </span>
-            </div>
           </div>
 
-          {/* Exercise List Header: Title + Add Movement */}
+          {/* EXERCISE SECTIONS */}
           <div style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 12
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-                BUGÜNÜN PROGRAMI ({activeExercises.length} HAREKET)
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  sounds.playPop();
-                  setIsAddModalOpen(true);
-                }}
-                style={{
-                  background: 'rgba(56, 189, 248, 0.1)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  borderRadius: 'var(--radius-full)',
-                  padding: '4px 10px',
-                  color: 'var(--cyan)',
-                  fontSize: 11.5,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <Plus size={13} strokeWidth={2.5} />
-                <span>+ Ekle</span>
-              </button>
-            </div>
 
-            {/* 2-Column Grid of Exercise Square Cards + Slot Card for Adding Exercise */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 10
-              }}
-            >
-              {activeExercises.map(({ exercise, lastWeight }, index) => (
-                <ExerciseSquareCard
-                  key={exercise.id}
-                  exercise={exercise}
-                  index={index + 1}
-                  lastWeight={lastWeight}
-                  onClick={() => setSelectedOverlayExercise(exercise)}
-                />
-              ))}
-
-              {/* Add Exercise Slot Card (Matches ExerciseSquareCard grid layout) */}
-              <button
-                type="button"
-                onClick={() => {
-                  sounds.playPop();
-                  setIsAddModalOpen(true);
-                }}
-                className="add-exercise-slot-card"
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '8px 8px 10px',
-                  borderRadius: 'var(--radius-lg)',
-                  background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.3), rgba(15, 23, 42, 0.6))',
-                  border: '1.5px dashed rgba(56, 189, 248, 0.45)',
-                  boxShadow: 'var(--shadow-sm)',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  gap: 6,
-                  transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
-                  width: '100%',
-                  textAlign: 'center',
-                  color: 'inherit'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--cyan)';
-                  e.currentTarget.style.background = 'linear-gradient(145deg, rgba(56, 189, 248, 0.12), rgba(15, 23, 42, 0.75))';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.45)';
-                  e.currentTarget.style.background = 'linear-gradient(145deg, rgba(30, 41, 59, 0.3), rgba(15, 23, 42, 0.6))';
-                  e.currentTarget.style.transform = 'none';
-                }}
-              >
-                {/* 1:1 Aspect Ratio Slot Visual placeholder */}
+            {/* 1. TAMAMLANANLAR ÜSTTE (Minimal Alt Alta Liste) */}
+            {completedExercises.length > 0 && (
+              <div style={{ marginBottom: uncompletedExercises.length > 0 ? 18 : 8 }}>
                 <div
                   style={{
-                    position: 'relative',
-                    width: '100%',
-                    aspectRatio: '1 / 1',
-                    borderRadius: 'var(--radius-md)',
-                    overflow: 'hidden',
-                    background: 'radial-gradient(circle at center, rgba(56, 189, 248, 0.12) 0%, rgba(10, 15, 29, 0.7) 70%)',
                     display: 'flex',
-                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    border: '1px dashed rgba(56, 189, 248, 0.25)'
+                    marginBottom: 8,
+                    padding: '0 2px'
                   }}
                 >
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(30, 41, 59, 0.8))',
-                      border: '1.5px solid rgba(56, 189, 248, 0.5)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--cyan)',
-                      boxShadow: '0 4px 14px rgba(56, 189, 248, 0.2)'
-                    }}
-                  >
-                    <Plus size={24} strokeWidth={2.5} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <CheckCircle2 size={15} color="#10b981" />
+                    <span style={{ fontSize: 12.5, fontWeight: 900, color: '#34d399', letterSpacing: '0.04em' }}>
+                      TAMAMLANAN HAREKETLER ({completedExercises.length})
+                    </span>
                   </div>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      letterSpacing: '0.06em',
-                      textTransform: 'uppercase',
-                      color: 'var(--cyan)',
-                      background: 'rgba(56, 189, 248, 0.1)',
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-full)'
-                    }}
-                  >
-                    Yeni Hareket
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Düzenlemek için dokunun
                   </span>
                 </div>
 
-                {/* Info Text matching card heights */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {completedExercises.map(({ exercise, sets, completedSets, orderIndex }) => (
+                    <CompletedExerciseRow
+                      key={exercise.id}
+                      exercise={exercise}
+                      orderIndex={orderIndex}
+                      sets={sets}
+                      completedSetsCount={completedSets}
+                      onOpen={() => setSelectedOverlayExercise(exercise)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. SIRADAKİ / DEVAM EDEN HAREKETLER (2'li Izgara) */}
+            {uncompletedExercises.length > 0 && (
+              <div>
                 <div
                   style={{
-                    width: '100%',
-                    textAlign: 'center',
-                    minHeight: 38,
                     display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    gap: 2
+                    alignItems: 'center',
+                    marginBottom: 10,
+                    padding: '0 2px'
                   }}
                 >
-                  <div style={{ fontWeight: 800, fontSize: 12.5, color: '#ffffff', lineHeight: 1.25 }}>
-                    Hareket Ekle
-                  </div>
-                  <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)' }}>
-                    Listeye slot ekle
+                  <div style={{ fontSize: 12.5, fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                    {completedExercises.length > 0 
+                      ? `SIRADAKİ HAREKETLER (${uncompletedExercises.length})` 
+                      : `BUGÜNÜN PROGRAMI (${activeExercises.length} HAREKET)`}
                   </div>
                 </div>
-              </button>
-            </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: 10
+                  }}
+                >
+                  {uncompletedExercises.map(({ exercise, lastWeight, orderIndex }) => (
+                    <ExerciseSquareCard
+                      key={exercise.id}
+                      exercise={exercise}
+                      index={orderIndex}
+                      lastWeight={lastWeight}
+                      onClick={() => setSelectedOverlayExercise(exercise)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Finish Workout Button */}
+          {/* 3. YENİ HAREKET EKLEME ALTTA (Büyük Temiz Buton) */}
           <button
             type="button"
-            onClick={handleFinishWorkout}
-            className="btn btn-primary"
+            onClick={() => {
+              sounds.playPop();
+              setIsAddModalOpen(true);
+            }}
             style={{
               width: '100%',
-              padding: '16px 20px',
-              fontSize: 15.5,
-              fontWeight: 900,
+              padding: '14px 18px',
               borderRadius: 'var(--radius-lg)',
+              background: 'linear-gradient(145deg, rgba(56, 189, 248, 0.08), rgba(15, 23, 42, 0.65))',
+              border: '1.5px dashed rgba(56, 189, 248, 0.45)',
+              color: 'var(--cyan)',
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 10,
-              background: totalCompletedSets > 0 
-                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
-                : 'rgba(30, 41, 59, 0.75)',
-              border: totalCompletedSets > 0
-                ? 'none'
-                : '1px solid rgba(255, 255, 255, 0.12)',
-              boxShadow: totalCompletedSets > 0
-                ? '0 6px 24px rgba(16, 185, 129, 0.4)'
-                : 'none',
-              letterSpacing: '-0.01em',
-              cursor: 'pointer',
-              marginBottom: 10
+              gap: 8,
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              marginBottom: 12,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--cyan)';
+              e.currentTarget.style.background = 'linear-gradient(145deg, rgba(56, 189, 248, 0.16), rgba(15, 23, 42, 0.85))';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.45)';
+              e.currentTarget.style.background = 'linear-gradient(145deg, rgba(56, 189, 248, 0.08), rgba(15, 23, 42, 0.65))';
+              e.currentTarget.style.transform = 'none';
             }}
           >
-            <Check size={20} strokeWidth={3} />
-            <span>
-              {totalCompletedSets > 0 
-                ? `Antrenmanı Bitir (${totalCompletedSets} Set Tamamlandı)` 
-                : 'Antrenmanı Bitir (0 Set Tamamlandı)'}
-            </span>
+            <Plus size={18} strokeWidth={2.5} />
+            <span>+ Yeni Hareket Ekle</span>
           </button>
+
 
           {/* Cancel & Discard option at bottom */}
           <div style={{ textAlign: 'center', marginBottom: 12 }}>
@@ -1140,7 +1089,7 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
               display: 'flex',
               flexDirection: 'column',
               borderRadius: '20px 20px 0 0',
-              padding: '16px',
+              padding: '16px 16px calc(16px + var(--safe-bottom)) 16px',
               background: '#0b1120',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               marginBottom: 0,
@@ -1369,20 +1318,60 @@ export const ActiveWorkoutLogger: React.FC<ActiveWorkoutLoggerProps> = ({ onBack
               {addModalTab === 'search' && (
                 <div>
                   <div style={{ position: 'relative', marginBottom: 10 }}>
-                    <Search size={15} color="var(--text-dim)" style={{ position: 'absolute', left: 10, top: 12 }} />
+                    <Search size={15} color="var(--text-dim)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape' && searchQuery) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSearchQuery('');
+                        } else if (e.key === 'Enter' && !e.nativeEvent.isComposing && (e as any).keyCode !== 229) {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      enterKeyHint="search"
                       placeholder="Hareket ara (örn: Bench, Squat, Curl)..."
                       className="form-input"
                       style={{
                         paddingLeft: 34,
-                        fontSize: 13,
+                        paddingRight: searchQuery ? 34 : 12,
+                        fontSize: 16,
                         height: 38,
                         borderRadius: 'var(--radius-md)'
                       }}
                     />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        aria-label="Aramayı temizle"
+                        style={{
+                          position: 'absolute',
+                          right: 6,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          border: 'none',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          color: 'var(--text-muted)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', paddingBottom: 2 }}>

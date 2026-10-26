@@ -1,4 +1,4 @@
-import { Workout, ExerciseSet, SavedExercise } from '../types/workout';
+import { Workout, ExerciseSet, SavedExercise, BodyMeasurementEntry } from '../types/workout';
 
 interface ExerciseProgressionConfig {
   id: string;
@@ -237,4 +237,56 @@ export function generateTwoYearWorkouts(endDateStr?: string): Workout[] {
   });
 
   return workouts;
+}
+
+/**
+ * Generates realistic bi-weekly body composition entries over 2 years (Body Recomposition journey)
+ */
+export function generateSampleBodyMeasurements(endDateStr?: string): BodyMeasurementEntry[] {
+  const endDate = endDateStr ? new Date(endDateStr) : new Date();
+  if (isNaN(endDate.getTime())) return [];
+
+  const totalWeeks = 104;
+  const startDate = new Date(endDate.getTime() - totalWeeks * 7 * 24 * 60 * 60 * 1000);
+  const entries: BodyMeasurementEntry[] = [];
+
+  // Every 2 weeks (53 entries total)
+  for (let week = 0; week <= totalWeeks; week += 2) {
+    const progress = week / totalWeeks;
+    const smoothProgress = 0.6 * progress + 0.4 * (1 - Math.exp(-2.8 * progress)) / (1 - Math.exp(-2.8));
+
+    const entryDate = new Date(startDate.getTime() + week * 7 * 24 * 60 * 60 * 1000);
+    const yyyy = entryDate.getFullYear();
+    const mm = String(entryDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(entryDate.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    // Slight natural fluctuation
+    const wave = Math.sin(week * 0.45) * 0.35;
+
+    // Weight: 81.5 kg -> 77.5 kg (cuts fat while adding muscle)
+    const weightKg = Math.round((81.5 - 4.0 * smoothProgress + wave) * 10) / 10;
+    // Body fat: 20.8% -> 12.6%
+    const bodyFatPct = Math.round((20.8 - 8.2 * smoothProgress + wave * 0.3) * 10) / 10;
+    // Skeletal Muscle Mass: 35.2 kg -> 39.8 kg
+    const muscleMassKg = Math.round((35.2 + 4.6 * smoothProgress - wave * 0.1) * 10) / 10;
+    // Waist: 89 cm -> 78.5 cm
+    const waistCm = Math.round((89 - 10.5 * smoothProgress) * 10) / 10;
+    // Arm: 34.5 cm -> 39.5 cm
+    const armCm = Math.round((34.5 + 5.0 * smoothProgress) * 10) / 10;
+
+    entries.push({
+      id: `bm-${entryDate.getTime()}-${week}`,
+      date: dateStr,
+      weightKg,
+      bodyFatPct,
+      muscleMassKg,
+      waistCm,
+      neckCm: 39.5,
+      armCm,
+      createdAt: entryDate.getTime() + 1000 * 60 * 60 * 9
+    });
+  }
+
+  return entries;
 }

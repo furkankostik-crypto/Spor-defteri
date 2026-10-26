@@ -9,6 +9,7 @@ import { Confetti } from './components/common/Confetti';
 import { AuthModal } from './components/auth/AuthModal';
 import { InstallPrompt } from './components/common/InstallPrompt';
 import { AthleteProfileModal } from './components/common/AthleteProfileModal';
+import { SettingsModal } from './components/common/SettingsModal';
 import { ActiveWorkoutFloatingBanner } from './components/workout/ActiveWorkoutFloatingBanner';
 import { RestTimerBar } from './components/workout/RestTimerBar';
 import { ExitConfirmModal } from './components/common/ExitConfirmModal';
@@ -43,6 +44,17 @@ export const App: React.FC = () => {
     };
   }, [isFullscreenLogging]);
 
+  useEffect(() => {
+    if (activeTab === 'workout' && !isFullscreenLogging) {
+      document.body.classList.add('home-dashboard-active');
+    } else {
+      document.body.classList.remove('home-dashboard-active');
+    }
+    return () => {
+      document.body.classList.remove('home-dashboard-active');
+    };
+  }, [activeTab, isFullscreenLogging]);
+
   // Mobil cihazlarda dikey (portrait) yönlendirme kilidi (destekleyen tarayıcılarda)
   useEffect(() => {
     try {
@@ -56,20 +68,21 @@ export const App: React.FC = () => {
 
   return (
     <>
+      <ToastContainer />
       <RestTimerBar />
-      <main style={{ flex: 1 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {activeTab === 'workout' && <WorkoutView />}
         {activeTab === 'history' && <HistoryView />}
-        {(activeTab === 'stats' || activeTab === 'levels') && <ProgressView />}
+        {(activeTab === 'stats' || activeTab === 'levels' || activeTab === 'body') && <ProgressView />}
       </main>
 
       <ActiveWorkoutFloatingBanner />
       {!isFullscreenLogging && <Navbar />}
       <InstallPrompt />
-      <ToastContainer />
       <Confetti />
       <AuthModal />
       <AthleteProfileModal />
+      <SettingsModal />
       <ExitConfirmModal />
     </>
   );

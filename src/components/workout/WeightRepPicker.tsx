@@ -6,6 +6,12 @@ import {
   REP_WHEEL_VALUES,
   DURATION_WHEEL_VALUES
 } from '../../utils/weightPresets';
+import {
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+  isImeComposing,
+  selectAllOnFocus
+} from '../../utils/inputUtils';
 import { sounds } from '../../utils/audio';
 import {
   Keyboard,
@@ -77,6 +83,7 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
   const isProgrammaticScrollRef = useRef<boolean>(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSoundTimeRef = useRef<number>(0);
+  const lastTickIndexRef = useRef<number>(-1);
 
   // Ruler values sequence tailored to the active mode & exercise
   const rulerValues = useMemo<number[]>(() => {
@@ -121,19 +128,28 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
     return weightConfig.defaultStep;
   }, [isDuration, activeField, weightConfig.defaultStep]);
 
-  // Sync keyboard text
+  // Sync keyboard text when switching field/set/exercise or when not actively typing in keyboard mode
   useEffect(() => {
-    setKeyboardText(currentValue > 0 ? String(currentValue) : '');
-  }, [currentValue, activeField, setIndex]);
+    if (!isKeyboardMode) {
+      setKeyboardText(currentValue > 0 ? String(currentValue) : '');
+    }
+  }, [currentValue, isKeyboardMode]);
 
   useEffect(() => {
+    setKeyboardText(currentValue > 0 ? String(currentValue) : '');
     if (isKeyboardMode && inputRef.current) {
-      inputRef.current.focus();
+      const target = inputRef.current;
+      target.focus();
       try {
-        inputRef.current.select();
+        target.select();
       } catch {}
+      setTimeout(() => {
+        try {
+          if (document.activeElement === target) target.select();
+        } catch {}
+      }, 0);
     }
-  }, [isKeyboardMode]);
+  }, [activeField, setIndex, exercise.id, isKeyboardMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll ruler to target value
   const scrollRulerToValue = useCallback(
@@ -153,6 +169,7 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
       }
 
       const targetScrollLeft = closestIdx * TICK_WIDTH;
+      lastTickIndexRef.current = closestIdx;
       if (Math.abs(container.scrollLeft - targetScrollLeft) > 1) {
         isProgrammaticScrollRef.current = true;
         container.scrollTo({
@@ -179,11 +196,18 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
   const handleScroll = () => {
     if (isProgrammaticScrollRef.current || !rulerRef.current) return;
 
-    // Rate-limited mechanical tick sound while sliding
-    const now = Date.now();
-    if (now - lastSoundTimeRef.current > 45) {
-      sounds.playTick();
-      lastSoundTimeRef.current = now;
+    const scrollLeft = rulerRef.current.scrollLeft;
+    const rawIdx = Math.round(scrollLeft / TICK_WIDTH);
+    const clampedIdx = Math.max(0, Math.min(rulerValues.length - 1, rawIdx));
+
+    // Trigger crisp tick sound & haptic ONLY when crossing a ruler tick mark boundary
+    if (clampedIdx !== lastTickIndexRef.current) {
+      lastTickIndexRef.current = clampedIdx;
+      const now = Date.now();
+      if (now - lastSoundTimeRef.current > 28) {
+        sounds.playTick();
+        lastSoundTimeRef.current = now;
+      }
     }
 
     if (scrollTimeoutRef.current) {
@@ -192,21 +216,24 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
 
     scrollTimeoutRef.current = setTimeout(() => {
       if (!rulerRef.current) return;
-      const scrollLeft = rulerRef.current.scrollLeft;
-      const rawIdx = Math.round(scrollLeft / TICK_WIDTH);
-      const clampedIdx = Math.max(0, Math.min(rulerValues.length - 1, rawIdx));
-      const snappedVal = rulerValues[clampedIdx];
+      const finalScrollLeft = rulerRef.current.scrollLeft;
+      const finalRawIdx = Math.round(finalScrollLeft / TICK_WIDTH);
+      const finalClampedIdx = Math.max(0, Math.min(rulerValues.length - 1, finalRawIdx));
+      const snappedVal = rulerValues[finalClampedIdx];
 
       if (snappedVal !== undefined && snappedVal !== currentValue) {
-        sounds.playTick();
+        if (finalClampedIdx !== lastTickIndexRef.current) {
+          lastTickIndexRef.current = finalClampedIdx;
+          sounds.playTick();
+        }
         const targetField = isDuration ? 'reps' : activeField;
         onUpdateValue(targetField, snappedVal);
       }
-    }, 60);
+    }, 55);
   };
 
   // Fine adjust + / -
-  const handleFineAdjust = (delta: number) => {
+  const handleFineAdjust = useCallback((delta: number) => {
     sounds.playTick();
     const targetField = isDuration ? 'reps' : activeField;
     const rawNext = (currentValue || 0) + delta;
@@ -216,8 +243,65 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
         : Math.max(0, Math.min(isDuration ? 999 : 99, Math.round(rawNext)));
 
     onUpdateValue(targetField, cleanNext);
+    setKeyboardText(cleanNext > 0 ? String(cleanNext) : '');
     scrollRulerToValue(cleanNext, true);
-  };
+  }, [isDuration, activeField, currentValue, onUpdateValue, scrollRulerToValue]);
+
+  // Intuitive hardware keyboard listener even before clicking "Klavye"
+  useEffect(() => {
+    if (isKeyboardMode) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.tagName === 'SELECT' ||
+          (activeEl as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+
+      const targetField = isDuration ? 'reps' : activeField;
+
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        sounds.playPop();
+        const digit = e.key;
+        setKeyboardText(digit);
+        setIsKeyboardMode(true);
+        const num = parseInt(digit, 10);
+        if (!isNaN(num)) {
+          onUpdateValue(targetField, num);
+        }
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        sounds.playPop();
+        setKeyboardText('');
+        setIsKeyboardMode(true);
+        onUpdateValue(targetField, 0);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleFineAdjust(-fineStep);
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleFineAdjust(fineStep);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        sounds.playPop();
+        if (!isDuration && activeField === 'weight') {
+          onChangeField('reps');
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isKeyboardMode, isDuration, activeField, fineStep, handleFineAdjust, onUpdateValue, onChangeField, onClose]);
 
   const handleApplyAll = () => {
     sounds.playSuccess();
@@ -265,7 +349,7 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: 'var(--radius-sm)',
-              height: 28,
+              height: 32,
               padding: '0 2px'
             }}
           >
@@ -282,12 +366,12 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
                   border: 'none',
                   color: setIndex <= 0 ? 'rgba(255,255,255,0.2)' : 'var(--text-muted)',
                   cursor: setIndex <= 0 ? 'default' : 'pointer',
-                  padding: '0 2px',
+                  padding: '4px 5px',
                   display: 'flex',
                   alignItems: 'center'
                 }}
               >
-                <ChevronLeft size={13} />
+                <ChevronLeft size={14} />
               </button>
             )}
             <span style={{ fontSize: 11.5, fontWeight: 900, color: '#ffffff', padding: '0 4px' }}>
@@ -306,12 +390,12 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
                   border: 'none',
                   color: setIndex >= totalSets - 1 ? 'rgba(255,255,255,0.2)' : 'var(--text-muted)',
                   cursor: setIndex >= totalSets - 1 ? 'default' : 'pointer',
-                  padding: '0 2px',
+                  padding: '4px 5px',
                   display: 'flex',
                   alignItems: 'center'
                 }}
               >
-                <ChevronRight size={13} />
+                <ChevronRight size={14} />
               </button>
             )}
           </div>
@@ -332,11 +416,10 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
                 type="button"
                 onClick={() => {
                   sounds.playPop();
-                  setIsKeyboardMode(false);
                   onChangeField('weight');
                 }}
                 style={{
-                  height: 24,
+                  height: 28,
                   padding: '0 10px',
                   borderRadius: 5,
                   border: 'none',
@@ -354,11 +437,10 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
                 type="button"
                 onClick={() => {
                   sounds.playPop();
-                  setIsKeyboardMode(false);
                   onChangeField('reps');
                 }}
                 style={{
-                  height: 24,
+                  height: 28,
                   padding: '0 10px',
                   borderRadius: 5,
                   border: 'none',
@@ -398,8 +480,8 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
               setIsKeyboardMode(!isKeyboardMode);
             }}
             style={{
-              height: 28,
-              padding: '0 8px',
+              height: 32,
+              padding: '0 9px',
               borderRadius: 'var(--radius-sm)',
               border: isKeyboardMode
                 ? `1px solid ${accentColor}`
@@ -426,8 +508,8 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
               onClose();
             }}
             style={{
-              width: 28,
-              height: 28,
+              width: 32,
+              height: 32,
               borderRadius: 'var(--radius-sm)',
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -439,7 +521,7 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
             }}
             title="Kapat"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
       </div>
@@ -493,29 +575,53 @@ export const WeightRepPicker: React.FC<WeightRepPickerProps> = ({
           >
             <input
               ref={inputRef}
-              type="number"
-              inputMode="decimal"
-              step="any"
-              min="0"
-              max="999"
+              type="text"
+              inputMode={isDuration || activeField === 'reps' ? 'numeric' : 'decimal'}
+              enterKeyHint={!isDuration && activeField === 'weight' ? 'next' : 'done'}
+              aria-label={isDuration ? 'Süre (saniye)' : activeField === 'weight' ? 'Ağırlık (kg)' : 'Tekrar sayısı'}
               value={keyboardText}
+              onFocus={selectAllOnFocus}
               onChange={(e) => {
-                const raw = e.target.value;
-                setKeyboardText(raw);
                 const targetField = isDuration ? 'reps' : activeField;
-                if (raw === '') {
+                const sanitized =
+                  targetField === 'weight'
+                    ? sanitizeDecimalInput(e.target.value)
+                    : sanitizeIntegerInput(e.target.value);
+                setKeyboardText(sanitized);
+                if (sanitized === '') {
                   onUpdateValue(targetField, 0);
                 } else {
-                  const num = targetField === 'weight' ? parseFloat(raw) : parseInt(raw, 10);
+                  const num = targetField === 'weight' ? parseFloat(sanitized) : parseInt(sanitized, 10);
                   if (!isNaN(num)) {
-                    onUpdateValue(targetField, Math.max(0, Math.min(999, num)));
+                    const maxAllowed = targetField === 'weight' || isDuration ? 999 : 99;
+                    onUpdateValue(targetField, Math.max(0, Math.min(maxAllowed, num)));
                   }
                 }
               }}
+              onBlur={() => {
+                if (keyboardText.endsWith('.')) {
+                  setKeyboardText(keyboardText.slice(0, -1));
+                }
+              }}
               onKeyDown={(e) => {
+                if (isImeComposing(e)) return;
                 if (e.key === 'Enter') {
                   e.preventDefault();
+                  sounds.playPop();
+                  if (!isDuration && activeField === 'weight') {
+                    onChangeField('reps');
+                  } else {
+                    setIsKeyboardMode(false);
+                  }
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
                   setIsKeyboardMode(false);
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  handleFineAdjust(fineStep);
+                } else if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  handleFineAdjust(-fineStep);
                 }
               }}
               placeholder="0"

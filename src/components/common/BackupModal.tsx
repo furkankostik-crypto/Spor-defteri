@@ -14,6 +14,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
   const { 
     workouts, 
     customExercises, 
+    profile,
     importAllData, 
     resetAllData, 
     populateSampleData, 
@@ -30,7 +31,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
   if (!isOpen) return null;
 
   const handleExportJSON = async () => {
-    const ok = await exportToJSON(workouts, customExercises);
+    const ok = await exportToJSON(workouts, customExercises, profile);
     if (ok) {
       showToast({
         title: '💾 Yedek Hazır',
@@ -65,7 +66,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
 
     try {
       const result = await parseImportJSON(file);
-      importAllData(result.workouts, result.customExercises);
+      importAllData(result.workouts, result.customExercises, result.athleteProfile);
       onClose();
     } catch (err: any) {
       showToast({

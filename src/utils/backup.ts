@@ -1,4 +1,4 @@
-import { Workout, ExerciseDefinition } from '../types/workout';
+import { Workout, ExerciseDefinition, AthleteProfile } from '../types/workout';
 import { mergeWorkoutsByDate } from './workoutMerge';
 import { getTodayLocalDate } from './dateUtils';
 import { isDurationExercise, isSetValid, getSetDurationSeconds, calculateSetEXP } from './calculations';
@@ -9,17 +9,23 @@ export interface BackupData {
   exportedAt: string;
   workouts: Workout[];
   customExercises?: ExerciseDefinition[];
+  athleteProfile?: AthleteProfile;
 }
 
 /**
  * Exports or shares data as a JSON file (uses Native Share Sheet on Android/iOS APK)
  */
-export async function exportToJSON(workouts: Workout[], customExercises: ExerciseDefinition[] = []): Promise<boolean> {
+export async function exportToJSON(
+  workouts: Workout[],
+  customExercises: ExerciseDefinition[] = [],
+  athleteProfile?: AthleteProfile
+): Promise<boolean> {
   const data: BackupData = {
-    version: '2.0.0',
+    version: '2.1.0',
     exportedAt: new Date().toISOString(),
     workouts,
-    customExercises
+    customExercises,
+    athleteProfile
   };
 
   const jsonStr = JSON.stringify(data, null, 2);
@@ -89,7 +95,11 @@ export async function exportToCSV(workouts: Workout[]): Promise<boolean> {
 /**
  * Imports and parses a JSON backup file
  */
-export function parseImportJSON(file: File): Promise<{ workouts: Workout[]; customExercises: ExerciseDefinition[] }> {
+export function parseImportJSON(file: File): Promise<{
+  workouts: Workout[];
+  customExercises: ExerciseDefinition[];
+  athleteProfile?: AthleteProfile;
+}> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -99,6 +109,7 @@ export function parseImportJSON(file: File): Promise<{ workouts: Workout[]; cust
 
         let importedWorkouts: Workout[] = [];
         let importedCustom: ExerciseDefinition[] = [];
+        let importedProfile: AthleteProfile | undefined;
 
         if (Array.isArray(parsed)) {
           // Old array of workouts from legacy deneme6
@@ -116,9 +127,16 @@ export function parseImportJSON(file: File): Promise<{ workouts: Workout[]; cust
           if (Array.isArray(parsed.customExercises)) {
             importedCustom = parsed.customExercises;
           }
+          if (parsed.athleteProfile && typeof parsed.athleteProfile === 'object') {
+            importedProfile = parsed.athleteProfile as AthleteProfile;
+          }
         }
 
-        resolve({ workouts: mergeWorkoutsByDate(importedWorkouts), customExercises: importedCustom });
+        resolve({
+          workouts: mergeWorkoutsByDate(importedWorkouts),
+          customExercises: importedCustom,
+          athleteProfile: importedProfile
+        });
       } catch (err) {
         reject(new Error('Geçersiz JSON dosyası formatı.'));
       }

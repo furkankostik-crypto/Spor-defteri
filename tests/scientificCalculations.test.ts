@@ -4,7 +4,9 @@ import {
   getBest1RMForExercise, 
   getExerciseStrengthAnalysis,
   calculateOverallGymLevels,
-  calculateWeeklyVolumeLandmarks
+  calculateWeeklyVolumeLandmarks,
+  calculateBodyCompositionMetrics,
+  estimateNavyBodyFatPct
 } from '../src/utils/scientificCalculations';
 import { Workout, ExerciseDefinition, AthleteProfile } from '../src/types/workout';
 
@@ -131,6 +133,52 @@ describe('scientificCalculations.ts — Exercise Science & Strength Standards', 
         expect(status.weeklySets).toBe(0);
         expect(status.landmark).toBe('under_mev');
       });
+    });
+  });
+
+  describe('calculateBodyCompositionMetrics & estimateNavyBodyFatPct', () => {
+    it('calculates BMI, LBM, FFMI and detects Body Recomposition when fat drops and muscle rises', () => {
+      const profileWithHistory: AthleteProfile = {
+        bodyWeightKg: 78,
+        heightCm: 180,
+        bodyFatPct: 13,
+        muscleMassKg: 39.5,
+        gender: 'male',
+        measurements: [
+          {
+            id: 'm1',
+            date: '2026-01-01',
+            weightKg: 80,
+            bodyFatPct: 18,
+            muscleMassKg: 36.5,
+            createdAt: 100
+          },
+          {
+            id: 'm2',
+            date: '2026-06-01',
+            weightKg: 78,
+            bodyFatPct: 13,
+            muscleMassKg: 39.5,
+            createdAt: 200
+          }
+        ]
+      };
+
+      const res = calculateBodyCompositionMetrics(profileWithHistory);
+      expect(res.bmi).toBeCloseTo(24.1, 1);
+      expect(res.leanBodyMassKg).toBeGreaterThan(65);
+      expect(res.normalizedFfmi).toBeGreaterThan(20);
+      expect(res.deltaWeightKg).toBe(-2);
+      expect(res.deltaBodyFatPct).toBe(-5);
+      expect(res.deltaMuscleKg).toBe(3);
+      expect(res.recompStatus).toBe('recomp');
+    });
+
+    it('estimates US Navy body fat percentage accurately from waist and neck', () => {
+      const bf = estimateNavyBodyFatPct('male', 180, 84, 40);
+      expect(bf).not.toBeNull();
+      expect(bf!).toBeGreaterThan(10);
+      expect(bf!).toBeLessThan(22);
     });
   });
 });

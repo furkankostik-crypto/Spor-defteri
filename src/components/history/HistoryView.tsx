@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useWorkout } from '../../context/WorkoutContext';
 import { Workout } from '../../types/workout';
 import { HistoryCard } from './HistoryCard';
+import { WorkoutDetailModal } from './WorkoutDetailModal';
 import { EditWorkoutModal } from './EditWorkoutModal';
 import { TimeFilterSelector, TimeFilterState } from '../workout/TimeFilterSelector';
 import { HeaderBurgerMenu } from '../layout/HeaderBurgerMenu';
@@ -37,12 +38,17 @@ export const HistoryView: React.FC = () => {
   });
 
   const [splitFilter, setSplitFilter] = useState<string>('all');
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [visibleLimit, setVisibleLimit] = useState(30);
 
+  const selectedWorkout = workouts.find((w) => w.id === selectedWorkoutId) || null;
+
   // Filter workouts according to TimeFilter and SplitFilter
   const filteredWorkouts = workouts.filter((w) => {
-    const matchesSplit = splitFilter === 'all' || w.type.toLowerCase().includes(splitFilter.toLowerCase());
+    const matchesSplit = splitFilter === 'all' || 
+      w.type.toLowerCase().includes(splitFilter.toLowerCase()) ||
+      (splitFilter === 'özel' && (w.type.toLowerCase().includes('core') || w.splitType === 'custom'));
     
     let matchesTime = true;
     if (timeFilter.mode === 'year') {
@@ -96,52 +102,15 @@ export const HistoryView: React.FC = () => {
         <HeaderBurgerMenu />
       </div>
 
-      {/* Time & Split Filters */}
-      <div style={{ marginBottom: 16 }}>
-        <TimeFilterSelector
-          filter={timeFilter}
-          onChange={setTimeFilter}
-          workouts={workouts}
-          matchingCount={filteredWorkouts.length}
-        />
-
-        {/* Split Filter Pills */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-          {[
-            { id: 'all', label: 'Tüm Bölgeler' },
-            { id: 'üst', label: 'Üst Vücut' },
-            { id: 'alt', label: 'Alt Vücut' },
-            { id: 'tüm', label: 'Tüm Vücut' },
-            { id: 'özel', label: 'Core / Özel' }
-          ].map((pill) => {
-            const isActive = splitFilter === pill.id;
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                onClick={() => {
-                  sounds.playPop();
-                  setSplitFilter(pill.id);
-                }}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  background: isActive ? 'var(--accent-soft)' : 'var(--input-bg)',
-                  color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {pill.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Unified Time & Region Filter Card */}
+      <TimeFilterSelector
+        filter={timeFilter}
+        onChange={setTimeFilter}
+        workouts={workouts}
+        matchingCount={filteredWorkouts.length}
+        splitFilter={splitFilter}
+        onSplitChange={setSplitFilter}
+      />
 
       {/* Workout History Cards List */}
       <div>
@@ -151,7 +120,10 @@ export const HistoryView: React.FC = () => {
               <HistoryCard
                 key={w.id}
                 workout={w}
-                onEdit={(target) => setEditingWorkout(target)}
+                onClick={() => {
+                  sounds.playPop();
+                  setSelectedWorkoutId(w.id);
+                }}
               />
             ))}
 
@@ -235,6 +207,14 @@ export const HistoryView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Workout Detail Modal (Overlay) */}
+      <WorkoutDetailModal
+        workout={selectedWorkout}
+        isOpen={Boolean(selectedWorkout)}
+        onClose={() => setSelectedWorkoutId(null)}
+        onEdit={(target) => setEditingWorkout(target)}
+      />
 
       {/* Edit Workout Modal */}
       <EditWorkoutModal

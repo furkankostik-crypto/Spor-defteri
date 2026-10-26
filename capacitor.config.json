@@ -37,8 +37,7 @@
     },
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#0b0f17",
-      "overlaysWebView": false
+      "overlaysWebView": true
     },
     "LocalNotifications": {
       "smallIcon": "ic_stat_icon_config_sample",

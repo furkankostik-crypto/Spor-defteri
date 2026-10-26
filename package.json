@@ -1,14 +1,14 @@
 {
   "name": "spor-defterim-pwa",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:local": "vite --no-tunnel",
     "tunnel": "cloudflared tunnel --url http://localhost:5173",
     "build": "tsc -b && vite build",
-    "android:sync": "npm run build && npx cap sync android",
+    "android:sync": "npm run build && npx cap sync android && node -e \"try{require('fs').rmSync('android/app/src/main/assets/public/GymPad.apk',{force:true})}catch(e){}\"",
     "android:open": "npx cap open android",
     "preview": "vite preview",
     "test": "vitest run",

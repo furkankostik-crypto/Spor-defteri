@@ -41,13 +41,17 @@ interface TimeFilterSelectorProps {
   onChange: (newFilter: TimeFilterState) => void;
   workouts: Workout[];
   matchingCount: number;
+  splitFilter?: string;
+  onSplitChange?: (split: string) => void;
 }
 
 export const TimeFilterSelector: React.FC<TimeFilterSelectorProps> = ({
   filter,
   onChange,
   workouts,
-  matchingCount
+  matchingCount,
+  splitFilter = 'all',
+  onSplitChange
 }) => {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const todayStr = getTodayLocalDate();
@@ -590,80 +594,98 @@ export const TimeFilterSelector: React.FC<TimeFilterSelectorProps> = ({
         </div>
       )}
 
-      {/* Summary and Reset Bar */}
-      <div 
+      {/* Unified Split Filter Pills + Summary & Reset Row */}
+      <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginTop: filter.mode === 'all' ? 4 : 10,
-          paddingTop: 6,
-          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-          fontSize: 11
+          gap: 8,
+          marginTop: filter.mode === 'all' ? 2 : 10,
+          paddingTop: 8,
+          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+          flexWrap: 'wrap'
         }}
       >
-        <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span 
-            style={{ 
-              fontWeight: 700, 
-              color: matchingCount > 0 ? '#ffffff' : 'var(--accent)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4
-            }}
-          >
-            {matchingCount > 0 ? (
-              <>
-                <span 
-                  style={{ 
-                    width: 6, 
-                    height: 6, 
-                    borderRadius: '50%', 
-                    background: 'var(--muscle-emerald)',
-                    boxShadow: '0 0 6px var(--muscle-emerald)'
-                  }} 
-                />
-                {matchingCount} Antrenman Bulundu
-              </>
-            ) : (
-              <>
-                <span 
-                  style={{ 
-                    width: 6, 
-                    height: 6, 
-                    borderRadius: '50%', 
-                    background: 'var(--accent)' 
-                  }} 
-                />
-                Bu zaman diliminde kayıt yok
-              </>
-            )}
-          </span>
-        </div>
+        {onSplitChange && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
+            {[
+              { id: 'all', label: 'Tümü' },
+              { id: 'üst', label: 'Üst' },
+              { id: 'alt', label: 'Alt' },
+              { id: 'tüm', label: 'Full' },
+              { id: 'özel', label: 'Core' }
+            ].map((pill) => {
+              const isActive = splitFilter === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => {
+                    sounds.playPop();
+                    onSplitChange(pill.id);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '5px 4px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: isActive ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid rgba(255, 255, 255, 0.06)',
+                    background: isActive ? 'rgba(56, 189, 248, 0.16)' : 'rgba(255, 255, 255, 0.025)',
+                    color: isActive ? '#38bdf8' : 'var(--text-muted)',
+                    fontSize: 11,
+                    fontWeight: isActive ? 800 : 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {filter.mode !== 'all' && (
-          <button
-            type="button"
-            onClick={handleReset}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <span
             style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--accent)',
               fontSize: 11,
               fontWeight: 700,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '2px 6px',
-              borderRadius: 'var(--radius-sm)',
-              transition: 'all 0.2s'
+              color: matchingCount > 0 ? 'var(--text-muted)' : 'var(--accent)',
+              whiteSpace: 'nowrap'
             }}
           >
-            <RotateCcw size={11} />
-            <span>Filtreyi Sıfırla</span>
-          </button>
-        )}
+            {matchingCount} seans
+          </span>
+
+          {(filter.mode !== 'all' || splitFilter !== 'all') && (
+            <button
+              type="button"
+              onClick={() => {
+                handleReset();
+                onSplitChange?.('all');
+              }}
+              title="Filtreleri Sıfırla"
+              style={{
+                background: 'rgba(255, 71, 87, 0.12)',
+                border: '1px solid rgba(255, 71, 87, 0.3)',
+                color: 'var(--accent)',
+                fontSize: 10.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+                padding: '4px 7px',
+                borderRadius: 'var(--radius-sm)'
+              }}
+            >
+              <RotateCcw size={10.5} />
+              <span>Sıfırla</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

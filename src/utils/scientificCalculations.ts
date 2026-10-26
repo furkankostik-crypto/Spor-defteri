@@ -6,7 +6,10 @@ import {
   StrengthTier, 
   MuscleGroup, 
   MuscleVolumeStatus,
-  VolumeLandmark
+  VolumeLandmark,
+  BodyCompositionAnalysis,
+  BodyMeasurementEntry,
+  Gender
 } from '../types/workout';
 import { 
   strengthTierConfigs, 
@@ -490,5 +493,214 @@ export function detectExercisePlateau(
     isPlateau: isStagnant,
     consecutiveCount: isStagnant ? 3 : 1,
     max1RM: Math.max(...session1RMs)
+  };
+}
+
+/**
+ * Estimates body fat percentage using the US Navy Circumference Method
+ */
+export function estimateNavyBodyFatPct(
+  gender: Gender,
+  heightCm: number,
+  waistCm: number,
+  neckCm: number,
+  hipCm?: number
+): number | null {
+  if (!heightCm || !waistCm || !neckCm || heightCm < 120 || waistCm <= neckCm) {
+    return null;
+  }
+
+  if (gender === 'male') {
+    const diff = waistCm - neckCm;
+    if (diff <= 0) return null;
+    const bf = 495 / (1.0324 - 0.19077 * Math.log10(diff) + 0.15456 * Math.log10(heightCm)) - 450;
+    return Math.round(Math.min(45, Math.max(4, bf)) * 10) / 10;
+  } else {
+    const effectiveHip = hipCm && hipCm > 50 ? hipCm : waistCm * 1.22;
+    const sum = waistCm + effectiveHip - neckCm;
+    if (sum <= 0) return null;
+    const bf = 495 / (1.29579 - 0.35004 * Math.log10(sum) + 0.22100 * Math.log10(heightCm)) - 450;
+    return Math.round(Math.min(50, Math.max(10, bf)) * 10) / 10;
+  }
+}
+
+/**
+ * Estimates Lean Body Mass (LBM) using the scientific Boer Formula when body fat % is unknown
+ */
+export function estimateBoerLeanBodyMass(gender: Gender, weightKg: number, heightCm: number): number {
+  if (gender === 'male') {
+    return Math.max(30, 0.407 * weightKg + 0.267 * heightCm - 19.2);
+  }
+  return Math.max(25, 0.252 * weightKg + 0.473 * heightCm - 48.3);
+}
+
+/**
+ * Computes full body composition metrics (BMI, LBM, FFMI, Skeletal Muscle Mass, Recomposition Deltas)
+ */
+export function calculateBodyCompositionMetrics(
+  profile: AthleteProfile,
+  override?: {
+    weightKg?: number;
+    heightCm?: number;
+    bodyFatPct?: number;
+    muscleMassKg?: number;
+    gender?: Gender;
+  }
+): BodyCompositionAnalysis {
+  const gender: Gender = override?.gender || profile.gender || 'male';
+  const weightKg = Math.max(30, override?.weightKg ?? profile.bodyWeightKg ?? 75);
+  const defaultHeight = gender === 'male' ? 178 : 165;
+  const heightCm = Math.max(130, Math.min(230, override?.heightCm ?? profile.heightCm ?? defaultHeight));
+  const heightM = heightCm / 100;
+
+  const bmi = Math.round((weightKg / (heightM * heightM)) * 10) / 10;
+  let bmiCategory = 'Normal';
+  if (bmi < 18.5) bmiCategory = 'Zayıf';
+  else if (bmi < 25) bmiCategory = 'İdeal';
+  else if (bmi < 30) bmiCategory = 'Kaslı / Fazla Kilolu';
+  else bmiCategory = 'Yüksek Kütle';
+
+  // Determine Body Fat %
+  const rawBf = override?.bodyFatPct !== undefined ? override.bodyFatPct : profile.bodyFatPct;
+  const isBodyFatEstimated = !(rawBf && rawBf > 2 && rawBf < 60);
+  let bodyFatPct: number;
+
+  if (!isBodyFatEstimated && rawBf) {
+    bodyFatPct = Math.round(rawBf * 10) / 10;
+  } else {
+    // Estimate from Boer LBM
+    const boerLbm = estimateBoerLeanBodyMass(gender, weightKg, heightCm);
+    const estBf = ((weightKg - boerLbm) / weightKg) * 100;
+    bodyFatPct = Math.round(Math.min(42, Math.max(gender === 'male' ? 8 : 14, estBf)) * 10) / 10;
+  }
+
+  const fatMassKg = Math.round(weightKg * (bodyFatPct / 100) * 10) / 10;
+  const leanBodyMassKg = Math.round((weightKg - fatMassKg) * 10) / 10;
+
+  // Skeletal Muscle Mass (SMM) - either user provided or ~54% of LBM (InBody standard ratio)
+  const rawMuscle = override?.muscleMassKg !== undefined ? override.muscleMassKg : profile.muscleMassKg;
+  const isMuscleEstimated = !(rawMuscle && rawMuscle > 10 && rawMuscle < weightKg);
+  const muscleMassKg = !isMuscleEstimated && rawMuscle
+    ? Math.round(rawMuscle * 10) / 10
+    : Math.round(leanBodyMassKg * (gender === 'male' ? 0.55 : 0.50) * 10) / 10;
+
+  // FFMI (Fat-Free Mass Index) & Normalized FFMI (adjusted to 1.80m height)
+  const ffmi = Math.round((leanBodyMassKg / (heightM * heightM)) * 10) / 10;
+  const normalizedFfmi = Math.round((ffmi + 6.1 * (1.8 - heightM)) * 10) / 10;
+
+  let ffmiTier = 'Başlangıç';
+  let ffmiColor = '#38bdf8';
+
+  if (gender === 'male') {
+    if (normalizedFfmi < 18) {
+      ffmiTier = 'Başlangıç';
+      ffmiColor = '#94a3b8';
+    } else if (normalizedFfmi < 20) {
+      ffmiTier = 'Ortalama';
+      ffmiColor = '#38bdf8';
+    } else if (normalizedFfmi < 22) {
+      ffmiTier = 'Atletik & Fit';
+      ffmiColor = '#10b981';
+    } else if (normalizedFfmi < 24) {
+      ffmiTier = 'İleri Kas Kütlesi';
+      ffmiColor = '#fbbf24';
+    } else {
+      ffmiTier = 'Elit / Genetik Zirve';
+      ffmiColor = '#f43f5e';
+    }
+  } else {
+    if (normalizedFfmi < 14) {
+      ffmiTier = 'Başlangıç';
+      ffmiColor = '#94a3b8';
+    } else if (normalizedFfmi < 15.5) {
+      ffmiTier = 'Ortalama';
+      ffmiColor = '#38bdf8';
+    } else if (normalizedFfmi < 17.5) {
+      ffmiTier = 'Atletik & Fit';
+      ffmiColor = '#10b981';
+    } else if (normalizedFfmi < 19.5) {
+      ffmiTier = 'İleri Kas Kütlesi';
+      ffmiColor = '#fbbf24';
+    } else {
+      ffmiTier = 'Elit / Genetik Zirve';
+      ffmiColor = '#f43f5e';
+    }
+  }
+
+  // Historical Deltas (from oldest to newest measurement in history)
+  const sortedMeasurements: BodyMeasurementEntry[] = [...(profile.measurements || [])].sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+
+  let deltaWeightKg = 0;
+  let deltaBodyFatPct = 0;
+  let deltaMuscleKg = 0;
+
+  if (sortedMeasurements.length >= 2) {
+    const first = sortedMeasurements[0];
+    const latest = sortedMeasurements[sortedMeasurements.length - 1];
+    deltaWeightKg = Math.round((latest.weightKg - first.weightKg) * 10) / 10;
+
+    const firstBf = first.bodyFatPct ?? bodyFatPct;
+    const latestBf = latest.bodyFatPct ?? bodyFatPct;
+    deltaBodyFatPct = Math.round((latestBf - firstBf) * 10) / 10;
+
+    const firstLbm = first.weightKg * (1 - firstBf / 100);
+    const latestLbm = latest.weightKg * (1 - latestBf / 100);
+    const firstMuscle = first.muscleMassKg ?? Math.round(firstLbm * (gender === 'male' ? 0.55 : 0.50) * 10) / 10;
+    const latestMuscle = latest.muscleMassKg ?? Math.round(latestLbm * (gender === 'male' ? 0.55 : 0.50) * 10) / 10;
+    deltaMuscleKg = Math.round((latestMuscle - firstMuscle) * 10) / 10;
+  }
+
+  // Classify Recomposition Phase
+  let recompStatus: BodyCompositionAnalysis['recompStatus'] = 'maintenance';
+  let recompLabel = 'Dengeli Koruma';
+  let recompBadge = '🎯 Form Koruma';
+  let recompDescription = 'Vücut ağırlığın ve kas/yağ dengen stabil ilerliyor.';
+  let recompColor = '#38bdf8';
+
+  if (deltaBodyFatPct <= -0.3 && deltaMuscleKg >= 0.1) {
+    recompStatus = 'recomp';
+    recompLabel = 'Body Recomposition';
+    recompBadge = '🔥 Rekompozisyon (Altın Faz)';
+    recompDescription = `Yağ oranın ${Math.abs(deltaBodyFatPct)}% düşerken kas kütlen +${deltaMuscleKg} kg arttı!`;
+    recompColor = '#10b981';
+  } else if (deltaMuscleKg >= 0.3 && deltaWeightKg > 0) {
+    recompStatus = 'lean_bulk';
+    recompLabel = 'Kas İnşası (Lean Bulk)';
+    recompBadge = '💪 Temiz Hacim & Kas Artışı';
+    recompDescription = `Başlangıçtan bu yana +${deltaMuscleKg} kg kas kütlesi kazandın.`;
+    recompColor = '#fbbf24';
+  } else if (deltaWeightKg <= -0.5 || deltaBodyFatPct <= -0.4) {
+    recompStatus = 'cutting';
+    recompLabel = 'Definasyon (Yağ Yakımı)';
+    recompBadge = '⚡ Definasyon & Yağ Yakımı';
+    recompDescription = `Toplam ${Math.abs(deltaWeightKg)} kg değişim ile yağ oranını düşürüyorsun.`;
+    recompColor = '#38bdf8';
+  }
+
+  return {
+    weightKg,
+    heightCm,
+    bmi,
+    bmiCategory,
+    bodyFatPct,
+    isBodyFatEstimated,
+    fatMassKg,
+    leanBodyMassKg,
+    muscleMassKg,
+    isMuscleEstimated,
+    ffmi,
+    normalizedFfmi,
+    ffmiTier,
+    ffmiColor,
+    deltaWeightKg,
+    deltaBodyFatPct,
+    deltaMuscleKg,
+    recompStatus,
+    recompLabel,
+    recompBadge,
+    recompDescription,
+    recompColor
   };
 }

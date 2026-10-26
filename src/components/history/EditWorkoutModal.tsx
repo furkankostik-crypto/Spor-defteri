@@ -3,6 +3,7 @@ import { Workout, SavedExercise, ExerciseDefinition } from '../../types/workout'
 import { useWorkout } from '../../context/WorkoutContext';
 import { useBackButton } from '../../context/BackNavigationContext';
 import { isDurationExercise, getSetDurationSeconds } from '../../utils/calculations';
+import { selectAllOnFocus } from '../../utils/inputUtils';
 import { muscleMetadata } from '../../data/muscleMetadata';
 import { WeightRepPicker } from '../workout/WeightRepPicker';
 import { sounds } from '../../utils/audio';
@@ -54,8 +55,8 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
     const isDur = isDurationExercise(ex.id);
     if (isDur) {
       const ds = ex.detailedSets?.[setIndex];
-      if (ds) return getSetDurationSeconds(ds, true) || 45;
-      return ex.sets[setIndex] || 45;
+      if (ds) return getSetDurationSeconds(ds, true);
+      return ex.sets[setIndex] ?? 45;
     }
     return ex.detailedSets?.[setIndex]?.reps ?? 8;
   };
@@ -86,7 +87,7 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
   };
 
   const handleSetRepsChange = (exIndex: number, setIndex: number, newReps: number) => {
-    const cleanReps = Math.max(1, Math.round(newReps));
+    const cleanReps = Math.max(0, Math.round(newReps));
     setExercises(prev => {
       const next = [...prev];
       const targetEx = { ...next[exIndex] };
@@ -187,16 +188,18 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 1150, padding: 'calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left))' }}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
         style={{
+          maxWidth: 550,
+          width: '100%',
           padding: 0,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: 'calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom))'
+          maxHeight: 'calc(100dvh - 16px - var(--safe-top) - var(--safe-bottom))'
         }}
       >
         <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
@@ -223,7 +226,10 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ workout, isO
               type="text"
               value={type}
               onChange={(e) => setType(e.target.value)}
+              onFocus={selectAllOnFocus}
+              enterKeyHint="done"
               className="form-input"
+              style={{ fontSize: 16 }}
             />
           </div>
 

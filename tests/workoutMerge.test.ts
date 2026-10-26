@@ -4,8 +4,12 @@ import {
   mergeWorkoutsByDate, 
   determineSplitType 
 } from '../src/utils/workoutMerge';
-import { compareWorkouts } from '../src/services/workoutSync';
-import { Workout, SavedExercise } from '../src/types/workout';
+import { 
+  compareWorkouts, 
+  smartMergeWorkouts, 
+  smartMergeCustomExercises 
+} from '../src/services/workoutSync';
+import { Workout, SavedExercise, ExerciseDefinition } from '../src/types/workout';
 
 describe('workoutMerge.ts — Multi-Device Cloud Sync & Merge Logic', () => {
   describe('mergeSavedExerciseLists', () => {
@@ -189,6 +193,54 @@ describe('workoutMerge.ts — Multi-Device Cloud Sync & Merge Logic', () => {
       expect(diff.hasChanges).toBe(true);
       expect(diff.localHasNew).toBe(true);
       expect(diff.changedCount).toBe(1);
+    });
+  });
+
+  describe('smartMergeWorkouts & smartMergeCustomExercises (Tombstone / Zombie Prevention)', () => {
+    it('prevents deleted workouts from resurrecting during cloud merge when tombstoned', () => {
+      const w1: Workout = {
+        id: 'w-deleted',
+        date: '2026-10-01',
+        type: 'Üst Vücut',
+        createdAt: 1000,
+        exercises: [{ id: 'bench-press', name: 'Bench Press', sets: [80] }]
+      };
+      const w2: Workout = {
+        id: 'w-kept',
+        date: '2026-10-02',
+        type: 'Alt Vücut',
+        createdAt: 2000,
+        exercises: [{ id: 'squat', name: 'Squat', sets: [100] }]
+      };
+
+      const deletedSet = new Set<string>(['w-deleted']);
+      const merged = smartMergeWorkouts([w2], [w1, w2], deletedSet);
+
+      expect(merged.length).toBe(1);
+      expect(merged[0].id).toBe('w-kept');
+    });
+
+    it('merges custom exercises across devices while excluding deleted custom exercise IDs', () => {
+      const ex1: ExerciseDefinition = {
+        id: 'c-1',
+        name: 'Landmine Press',
+        muscle: 'shoulder',
+        category: 'upper',
+        isCustom: true
+      };
+      const ex2: ExerciseDefinition = {
+        id: 'c-2',
+        name: 'Belt Squat',
+        muscle: 'quads',
+        category: 'lower',
+        isCustom: true
+      };
+
+      const deletedCustomSet = new Set<string>(['c-1']);
+      const merged = smartMergeCustomExercises([ex2], [ex1, ex2], deletedCustomSet);
+
+      expect(merged.length).toBe(1);
+      expect(merged[0].id).toBe('c-2');
     });
   });
 });

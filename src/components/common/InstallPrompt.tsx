@@ -41,7 +41,7 @@ export const InstallPrompt: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 16,
+            padding: 'calc(16px + var(--safe-top, 0px)) 16px calc(16px + var(--safe-bottom, 0px)) 16px',
             animation: 'fadeIn 0.2s ease-out'
           }}
         >
@@ -51,6 +51,8 @@ export const InstallPrompt: React.FC = () => {
             style={{
               width: '100%',
               maxWidth: 420,
+              maxHeight: '100%',
+              overflowY: 'auto',
               background: 'linear-gradient(180deg, #161e31 0%, #0d121d 100%)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: 'var(--radius-xl)',

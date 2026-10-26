@@ -2,7 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     
     <!-- Primary Meta Tags -->
     <title>GymPad — Antrenman & 1-1000 Level Takip</title>
@@ -33,6 +33,8 @@
     <meta name="apple-touch-fullscreen" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GymPad" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
     <link rel="manifest" href="/manifest.json" />
@@ -48,13 +50,26 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Service Worker Registration for PWA Offline Support
+      // Detect Apple iOS Home Screen Standalone PWA immediately before first paint
+      if (window.navigator && window.navigator.standalone === true) {
+        document.documentElement.classList.add('is-ios-standalone');
+      }
+
+      // Service Worker Registration for PWA Offline Support & Foreground Update Check
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then(registration => {
-              // Check for update periodically
-              registration.update();
+              registration.update().catch(() => {});
+
+              // Also check for SW updates when app returns to foreground after being backgrounded
+              let lastSwCheck = Date.now();
+              document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && Date.now() - lastSwCheck > 5 * 60 * 1000) {
+                  lastSwCheck = Date.now();
+                  registration.update().catch(() => {});
+                }
+              });
             })
             .catch(() => {});
         });

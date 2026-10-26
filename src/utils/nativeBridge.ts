@@ -8,12 +8,24 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 const REST_TIMER_NOTIFICATION_ID = 7701;
+const STORAGE_VIBRATION_KEY = 'spor_vibration_enabled';
 
 class NativeBridge {
   private wakeLockSentinel: any = null;
   private isKeepAwakeRequested = false;
+  private iosHapticLabel: HTMLLabelElement | null = null;
+  public vibrationEnabled: boolean = true;
 
   constructor() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const saved = localStorage.getItem(STORAGE_VIBRATION_KEY);
+        if (saved !== null) {
+          this.vibrationEnabled = saved === 'true';
+        }
+      } catch {}
+    }
+
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && this.isKeepAwakeRequested) {
@@ -21,6 +33,15 @@ class NativeBridge {
         }
       });
     }
+  }
+
+  public setVibrationEnabled(enabled: boolean): void {
+    this.vibrationEnabled = enabled;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(STORAGE_VIBRATION_KEY, String(enabled));
+      }
+    } catch {}
   }
 
   /**
@@ -48,10 +69,13 @@ class NativeBridge {
   public async initNativeShell(): Promise<void> {
     if (!this.isNative()) return;
 
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.add('is-native');
+    }
+
     try {
       await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: '#0b0f17' });
-      await StatusBar.setOverlaysWebView({ overlay: false });
+      await StatusBar.setOverlaysWebView({ overlay: true });
     } catch {}
 
     try {
@@ -71,13 +95,46 @@ class NativeBridge {
   }
 
   // ============================================================================
-  // 1. HAPTICS (TACTILE FEEDBACK)
+  // 1. HAPTICS (TACTILE FEEDBACK - ANDROID NATIVE, WEB VIBRATE & iOS 17.4+ TAPTIC)
   // ============================================================================
+
+  /**
+   * Triggers Apple Taptic Engine on iOS 17.4+ / iOS 18+ Safari & Home Screen PWA
+   * via a hidden <input type="checkbox" switch> element when navigator.vibrate is unavailable.
+   */
+  private triggerIosWebHaptic(): void {
+    try {
+      if (typeof document === 'undefined' || typeof navigator === 'undefined') return;
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (!isIOS) return;
+
+      if (!this.iosHapticLabel) {
+        const label = document.createElement('label');
+        label.setAttribute('aria-hidden', 'true');
+        label.style.cssText =
+          'position:fixed;top:-100px;left:-100px;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;z-index:-1;';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.setAttribute('switch', '');
+        label.appendChild(input);
+        if (document.body) {
+          document.body.appendChild(label);
+          this.iosHapticLabel = label;
+        }
+      }
+      if (this.iosHapticLabel) {
+        this.iosHapticLabel.click();
+      }
+    } catch {}
+  }
 
   /**
    * Ultra-crisp micro-tick when scrolling the Weight/Rep ruler wheel
    */
   public async vibrateSelectionTick(): Promise<void> {
+    if (!this.vibrationEnabled) return;
     try {
       if (this.isNative()) {
         await Haptics.selectionChanged();
@@ -85,7 +142,9 @@ class NativeBridge {
       }
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(6);
+        return;
       }
+      this.triggerIosWebHaptic();
     } catch {}
   }
 
@@ -93,6 +152,7 @@ class NativeBridge {
    * Light tactile tap for normal button presses and tab switches
    */
   public async vibrateLight(): Promise<void> {
+    if (!this.vibrationEnabled) return;
     try {
       if (this.isNative()) {
         await Haptics.impact({ style: ImpactStyle.Light });
@@ -100,7 +160,9 @@ class NativeBridge {
       }
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(10);
+        return;
       }
+      this.triggerIosWebHaptic();
     } catch {}
   }
 
@@ -108,6 +170,7 @@ class NativeBridge {
    * Medium crisp thud when marking a workout set as Completed (✓)
    */
   public async vibrateMedium(): Promise<void> {
+    if (!this.vibrationEnabled) return;
     try {
       if (this.isNative()) {
         await Haptics.impact({ style: ImpactStyle.Medium });
@@ -115,7 +178,9 @@ class NativeBridge {
       }
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(22);
+        return;
       }
+      this.triggerIosWebHaptic();
     } catch {}
   }
 
@@ -123,6 +188,7 @@ class NativeBridge {
    * Celebratory pattern when saving a workout, hitting a new PR, or leveling up!
    */
   public async vibrateSuccess(): Promise<void> {
+    if (!this.vibrationEnabled) return;
     try {
       if (this.isNative()) {
         await Haptics.notification({ type: NotificationType.Success });
@@ -130,7 +196,9 @@ class NativeBridge {
       }
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([25, 45, 45]);
+        return;
       }
+      this.triggerIosWebHaptic();
     } catch {}
   }
 
@@ -138,17 +206,21 @@ class NativeBridge {
    * Strong alert vibration when Rest Timer finishes
    */
   public async vibrateTimerFinish(): Promise<void> {
+    if (!this.vibrationEnabled) return;
     try {
       if (this.isNative()) {
         await Haptics.notification({ type: NotificationType.Warning });
         setTimeout(() => {
+          if (!this.vibrationEnabled) return;
           Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
         }, 180);
         return;
       }
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([120, 80, 160]);
+        return;
       }
+      this.triggerIosWebHaptic();
     } catch {}
   }
 
@@ -262,9 +334,31 @@ class NativeBridge {
       }
     }
 
-    // 2. Web / PWA: Try Web Share API with files if supported on mobile, otherwise standard download
+    // 2. Web / PWA (Especially iOS Standalone PWA where <a download> is restricted):
+    // Try Web Share API with File support first on iOS/mobile, then fallback to standard download
     try {
       const blob = new Blob([content], { type: mimeType });
+      const isIOS =
+        typeof navigator !== 'undefined' &&
+        (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+      if (isIOS && typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+        try {
+          const file = new File([blob], filename, { type: mimeType });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: dialogTitle,
+              text: `${dialogTitle} (${filename})`
+            });
+            return true;
+          }
+        } catch (shareErr: any) {
+          if (shareErr?.name === 'AbortError') return false;
+        }
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

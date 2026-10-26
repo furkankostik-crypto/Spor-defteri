@@ -5,53 +5,74 @@ import { CheckCircle2, Trophy, AlertTriangle, Info, X } from 'lucide-react';
 export const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useWorkout();
 
-  if (toasts.length === 0) return null;
+  // En son 2 bildirimi göstererek ekranı asla doldurmayalım
+  const visibleToasts = toasts.slice(-2);
+  const isActive = visibleToasts.length > 0;
 
   return (
-    <div className="toast-container">
-      {toasts.map((toast) => {
+    <aside
+      className={`toast-bar-container ${isActive ? 'is-active' : ''}`}
+      aria-live="polite"
+      role="region"
+      aria-label="Bildirimler"
+    >
+      {visibleToasts.map((toast) => {
         let Icon = CheckCircle2;
         let iconColor = '#10b981';
+        let barTypeClass = 'toast-bar-success';
 
         if (toast.type === 'pr' || toast.type === 'level') {
           Icon = Trophy;
           iconColor = '#fbbf24';
+          barTypeClass = 'toast-bar-pr';
         } else if (toast.type === 'error') {
           Icon = AlertTriangle;
           iconColor = '#ff4757';
+          barTypeClass = 'toast-bar-error';
         } else if (toast.type === 'info') {
           Icon = Info;
           iconColor = '#38bdf8';
+          barTypeClass = 'toast-bar-info';
         }
 
+        // Başlıktaki mükerrer emojileri temizleyip minimal ve şık gösterelim
+        const cleanTitle = toast.title
+          ? toast.title.replace(/^[\p{Emoji}\s]+/u, '').trim()
+          : '';
+        const displayTitle = cleanTitle || toast.title;
+
         return (
-          <div key={toast.id} className={`toast ${toast.type === 'pr' ? 'toast-pr' : ''}`}>
-            <Icon size={20} color={iconColor} style={{ flexShrink: 0, marginTop: 2 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#f8fafc' }}>
-                {toast.title}
-              </div>
+          <div
+            key={toast.id}
+            className={`toast-bar ${barTypeClass}`}
+            onClick={() => removeToast(toast.id)}
+            role="status"
+          >
+            <div className="toast-bar-icon">
+              <Icon size={14} color={iconColor} strokeWidth={2.4} />
+            </div>
+
+            <div className="toast-bar-text">
+              <span className="toast-bar-title">{displayTitle}</span>
               {toast.description && (
-                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
-                  {toast.description}
-                </div>
+                <span className="toast-bar-desc">{toast.description}</span>
               )}
             </div>
+
             <button
-              onClick={() => removeToast(toast.id)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#64748b',
-                cursor: 'pointer',
-                padding: 2
+              type="button"
+              className="toast-bar-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeToast(toast.id);
               }}
+              aria-label="Kapat"
             >
-              <X size={16} />
+              <X size={13} strokeWidth={2.2} />
             </button>
           </div>
         );
       })}
-    </div>
+    </aside>
   );
 };

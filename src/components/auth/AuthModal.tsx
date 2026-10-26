@@ -606,10 +606,14 @@ export const AuthModal: React.FC = () => {
                     </label>
                     <input
                       type="text"
+                      name="displayName"
+                      autoComplete="name"
+                      enterKeyHint="next"
                       placeholder="Örn: Hakan Yılmaz"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       className="form-input"
+                      style={{ fontSize: 16 }}
                     />
                   </div>
                 )}
@@ -621,11 +625,18 @@ export const AuthModal: React.FC = () => {
                   </label>
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="email"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    enterKeyHint={mode === 'forgot' ? 'done' : 'next'}
                     placeholder="ornek@mail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="form-input"
+                    style={{ fontSize: 16 }}
                   />
                 </div>
 
@@ -658,12 +669,16 @@ export const AuthModal: React.FC = () => {
                     </div>
                     <input
                       type="password"
+                      name="password"
+                      autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                      enterKeyHint="done"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       minLength={6}
                       className="form-input"
+                      style={{ fontSize: 16 }}
                     />
                   </div>
                 )}

@@ -248,14 +248,14 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
       onClick={handleCloseModal}
       style={{
         zIndex: 1050,
-        padding: 'calc(12px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left))'
+        padding: 'calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left))'
       }}
     >
       <div 
         className="modal-content" 
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: 480,
+          maxWidth: 580,
           width: '100%',
           padding: 0,
           background: 'linear-gradient(180deg, #131b2e 0%, #0c111c 100%)',
@@ -265,7 +265,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: 'calc(100dvh - 28px - var(--safe-top) - var(--safe-bottom))'
+          height: 'min(900px, calc(100dvh - 16px - var(--safe-top) - var(--safe-bottom)))',
+          maxHeight: 'calc(100dvh - 16px - var(--safe-top) - var(--safe-bottom))'
         }}
       >
         {/* 1. HERO SHOWCASE STAGE: Large 3D Figure Render with Floating Badges (Compacts smoothly when Picker is open) */}
@@ -275,7 +276,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           style={{
             position: 'relative',
             width: '100%',
-            height: activePicker ? 'clamp(90px, 13vh, 115px)' : 'clamp(180px, 26vh, 235px)',
+            height: activePicker ? 'clamp(90px, 13vh, 120px)' : 'clamp(210px, 32vh, 320px)',
             background: 'radial-gradient(circle at 50% 35%, rgba(30, 41, 59, 0.7) 0%, rgba(10, 15, 26, 0.98) 100%)',
             overflow: 'hidden',
             flexShrink: 0,
@@ -534,21 +535,21 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '12px 14px 14px',
+            padding: '16px 18px 18px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 8
+            gap: 12
           }}
         >
           {/* Exercise Title and Muscle Activation Breakdown */}
           <div>
             <h2
               style={{
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: 900,
                 color: '#ffffff',
                 letterSpacing: '-0.02em',
-                margin: '0 0 5px',
+                margin: '0 0 6px',
                 lineHeight: 1.15
               }}
             >
@@ -607,7 +608,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 background: 'rgba(15, 23, 42, 0.65)',
                 border: '1px solid rgba(56, 189, 248, 0.22)',
                 borderRadius: 'var(--radius-md)',
-                padding: '6px 10px',
+                padding: '7px 12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -696,14 +697,14 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: isDuration ? '30px 1fr 34px 28px' : '30px 1fr 1fr 34px 28px',
-                gap: 6,
-                fontSize: 10.5,
+                gridTemplateColumns: isDuration ? '32px 1fr 36px 30px' : '32px 1fr 1fr 36px 30px',
+                gap: 7,
+                fontSize: 11,
                 fontWeight: 800,
                 letterSpacing: '0.04em',
                 color: 'var(--text-dim)',
                 textAlign: 'center',
-                padding: '0 6px 4px',
+                padding: '0 7px 5px',
                 textTransform: 'uppercase'
               }}
             >
@@ -777,12 +778,12 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               }}
               style={{
                 width: '100%',
-                height: 38,
+                height: 42,
                 background: 'rgba(255, 255, 255, 0.03)',
                 border: '1px dashed rgba(255, 255, 255, 0.2)',
                 borderRadius: 'var(--radius-md)',
                 color: 'var(--text-main)',
-                fontSize: 12.5,
+                fontSize: 13.5,
                 fontWeight: 800,
                 padding: '0 10px',
                 cursor: 'pointer',
@@ -790,7 +791,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
-                marginTop: 2,
+                marginTop: 4,
                 marginBottom: 4,
                 transition: 'all 0.2s ease'
               }}
@@ -805,13 +806,13 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 e.currentTarget.style.color = 'var(--text-main)';
               }}
             >
-              <Plus size={15} color="var(--muscle-emerald)" />
+              <Plus size={16} color="var(--muscle-emerald)" />
               <span>+ Yeni Set Ekle</span>
             </button>
           </div>
 
           {/* Bottom Actions: Active summary + Save/Close */}
-          <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginTop: 2 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 'auto', paddingTop: 8 }}>
             {activeSets.length > 0 && (
               <button
                 type="button"
@@ -822,8 +823,8 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 className="btn btn-secondary"
                 title="Bu egzersizin setlerini sıfırla"
                 style={{
-                  padding: '10px',
-                  height: 44,
+                  padding: '10px 14px',
+                  height: 48,
                   borderRadius: 'var(--radius-md)',
                   color: 'var(--text-dim)',
                   display: 'flex',
@@ -831,7 +832,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                   justifyContent: 'center'
                 }}
               >
-                <RotateCcw size={15} />
+                <RotateCcw size={16} />
               </button>
             )}
 
@@ -849,12 +850,12 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
               className="btn btn-primary"
               style={{
                 flex: 1,
-                height: 44,
-                padding: '10px 14px',
+                height: 48,
+                padding: '10px 18px',
                 borderRadius: 'var(--radius-md)',
-                fontSize: 13.5,
+                fontSize: 14.5,
                 fontWeight: 800,
-                gap: 7,
+                gap: 8,
                 background: isExerciseFullyCompleted || activeSets.length > 0
                   ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
                   : 'linear-gradient(135deg, var(--accent), #e11d48)',
@@ -864,7 +865,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
                 transition: 'all 0.2s ease'
               }}
             >
-              <Check size={16} strokeWidth={2.5} />
+              <Check size={17} strokeWidth={2.5} />
               <span>
                 {isExerciseFullyCompleted
                   ? `✓ Tamamlandı (${completedSets.length} Set • ${activeVolume.toLocaleString('tr-TR')} ${isDuration ? 'sn' : 'kg'})`
@@ -943,7 +944,7 @@ export const ExerciseInputOverlay: React.FC<ExerciseInputOverlayProps> = ({
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: 480,
+              maxWidth: 580,
               width: '100%',
               background: '#0a0f1d',
               borderRadius: 'var(--radius-xl)',

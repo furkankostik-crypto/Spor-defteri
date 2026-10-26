@@ -3,7 +3,42 @@ import { nativeBridge } from './nativeBridge';
 
 class SoundEffects {
   private ctx: AudioContext | null = null;
+  private isUnlocked: boolean = false;
   public enabled: boolean = true;
+
+  constructor() {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const unlockAudio = () => {
+        if (this.isUnlocked) return;
+        this.isUnlocked = true;
+        try {
+          const ctx = this.getContext();
+          if (ctx) {
+            // Play silent 1-sample buffer to unlock iOS Safari/PWA WebAudio immediately on first touch
+            const buffer = ctx.createBuffer(1, 1, 22050);
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start(0);
+          }
+        } catch {}
+        document.removeEventListener('touchstart', unlockAudio, true);
+        document.removeEventListener('pointerdown', unlockAudio, true);
+        document.removeEventListener('click', unlockAudio, true);
+      };
+      document.addEventListener('touchstart', unlockAudio, { capture: true, passive: true });
+      document.addEventListener('pointerdown', unlockAudio, { capture: true, passive: true });
+      document.addEventListener('click', unlockAudio, { capture: true, passive: true });
+    }
+  }
+
+  public get vibrationEnabled(): boolean {
+    return nativeBridge.vibrationEnabled;
+  }
+
+  public set vibrationEnabled(val: boolean) {
+    nativeBridge.setVibrationEnabled(val);
+  }
 
   private getContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;

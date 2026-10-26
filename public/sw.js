@@ -1,4 +1,5 @@
-const CACHE_NAME = 'gympad-v15';
+const CACHE_NAME = 'gympad-v17';
+const ASSETS_CACHE_NAME = 'gympad-static-v1';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -17,13 +18,13 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: Clean up older cache versions
+// Activate: Clean up older shell cache versions while preserving immutable static asset cache
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName !== CACHE_NAME && cacheName !== ASSETS_CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
@@ -41,8 +42,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Never intercept APK downloads, Firebase / Firestore / Google Auth / Gemini API or Vite dev requests
+  // Never intercept version checks, SW script itself, APK downloads, Firebase / Auth / Gemini API or Vite dev requests
   if (
+    url.pathname === '/version.json' ||
+    url.pathname === '/sw.js' ||
     url.pathname.endsWith('.apk') ||
     url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('identitytoolkit.googleapis.com') ||
@@ -80,6 +83,8 @@ self.addEventListener('fetch', (event) => {
   // 2. Static Assets (App build chunks, fonts, images): Cache-First with Network Revalidation
   const isSameOrigin = url.origin === self.location.origin;
   const isFont = url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com');
+  const isImmutableAsset = isSameOrigin && (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/exercises/'));
+  const targetCacheName = isImmutableAsset ? ASSETS_CACHE_NAME : CACHE_NAME;
 
   if (isSameOrigin || isFont) {
     event.respondWith(
@@ -88,7 +93,7 @@ self.addEventListener('fetch', (event) => {
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
               const responseClone = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => {
+              caches.open(targetCacheName).then((cache) => {
                 cache.put(request, responseClone);
               });
             }

@@ -186,9 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const res = await SocialLogin.login({
             provider: 'google',
-            options: {
-              scopes: ['email', 'profile']
-            }
+            options: {}
           });
 
           const resultObj = res.result as any;

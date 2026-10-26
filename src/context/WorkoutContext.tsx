@@ -7,15 +7,30 @@ import {
   ExerciseSet,
   OverallPlayerStats,
   AthleteProfile,
+  BodyMeasurementEntry,
   ActiveWorkoutSession
 } from '../types/workout';
 import { defaultExercises } from '../data/defaultExercises';
 import { getTodayLocalDate } from '../utils/dateUtils';
 import { calculateOverallPlayerStats, calculateExerciseLevelInfo, isDurationExercise, isSetValid, getSetDurationSeconds } from '../utils/calculations';
 import { sounds } from '../utils/audio';
-import { generateTwoYearWorkouts } from '../data/mockWorkouts';
+import { nativeBridge } from '../utils/nativeBridge';
+import { generateTwoYearWorkouts, generateSampleBodyMeasurements } from '../data/mockWorkouts';
 import { useAuth } from './AuthContext';
-import { saveCloudWorkouts, performFullSync, saveCloudActiveSession, fetchCloudActiveSession } from '../services/workoutSync';
+import { 
+  saveCloudWorkouts, 
+  saveCloudProfile, 
+  saveCloudCustomExercises,
+  performFullSync, 
+  saveCloudActiveSession, 
+  fetchCloudActiveSession,
+  addLocalDeletedWorkoutId,
+  setLocalDeletedWorkoutIds,
+  addLocalDeletedCustomExerciseId,
+  setLocalDeletedCustomExerciseIds,
+  isSyncDirty,
+  setSyncDirty
+} from '../services/workoutSync';
 import { mergeWorkoutsByDate, mergeSavedExerciseLists, determineSplitType } from '../utils/workoutMerge';
 import { getExerciseOverloadSuggestion } from '../utils/recommendationEngine';
 
@@ -72,6 +87,8 @@ interface WorkoutContextType {
   confettiTrigger: number;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
+  vibrationEnabled: boolean;
+  setVibrationEnabled: (enabled: boolean) => void;
   isLoggingWorkout: boolean;
   setIsLoggingWorkout: (isLogging: boolean) => void;
   activeSessionStartTime: number | null;
@@ -79,14 +96,20 @@ interface WorkoutContextType {
   setIsWorkoutMinimized: (minimized: boolean) => void;
   resumeActiveWorkout: () => void;
   discardActiveWorkout: () => void;
-  importAllData: (workouts: Workout[], custom: ExerciseDefinition[]) => void;
+  importAllData: (workouts: Workout[], custom: ExerciseDefinition[], importedProfile?: AthleteProfile) => void;
   resetAllData: () => void;
   populateSampleData: () => void;
   profile: AthleteProfile;
   updateProfile: (updates: Partial<AthleteProfile>) => void;
+  logBodyMeasurement: (entry: Omit<BodyMeasurementEntry, 'id' | 'createdAt'>) => void;
+  deleteBodyMeasurement: (id: string) => void;
   applyOverloadSuggestion: (exerciseId: string) => void;
   isProfileModalOpen: boolean;
   setIsProfileModalOpen: (open: boolean) => void;
+  profileModalInitialTab: 'entry' | 'trends';
+  openProfileModal: (initialTab?: 'entry' | 'trends') => void;
+  isSettingsModalOpen: boolean;
+  setIsSettingsModalOpen: (open: boolean) => void;
   syncWithCloud: (options?: SyncCloudOptions) => Promise<void>;
 }
 
@@ -96,6 +119,7 @@ const STORAGE_WORKOUTS_KEY = 'myWorkouts_v2';
 const STORAGE_LEGACY_KEY = 'myWorkouts';
 const STORAGE_CUSTOM_EXERCISES_KEY = 'myCustomExercises';
 const STORAGE_SOUND_KEY = 'spor_sound_enabled';
+const STORAGE_VIBRATION_KEY = 'spor_vibration_enabled';
 const STORAGE_PROFILE_KEY = 'spor_athlete_profile';
 const STORAGE_ACTIVE_SESSION_KEY = 'spor_active_session';
 
@@ -118,9 +142,11 @@ const loadInitialActiveSession = (): ActiveWorkoutSession | null => {
 
 const DEFAULT_PROFILE: AthleteProfile = {
   bodyWeightKg: 75,
+  heightCm: 178,
   gender: 'male',
   age: 25,
-  trainingGoal: 'hypertrophy'
+  trainingGoal: 'hypertrophy',
+  measurements: []
 };
 
 export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -136,13 +162,28 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [profile, setProfile] = useState<AthleteProfile>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_PROFILE_KEY);
-      return saved ? { ...DEFAULT_PROFILE, ...JSON.parse(saved) } : DEFAULT_PROFILE;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_PROFILE,
+          ...parsed,
+          measurements: Array.isArray(parsed.measurements) ? parsed.measurements : []
+        };
+      }
+      return DEFAULT_PROFILE;
     } catch {
       return DEFAULT_PROFILE;
     }
   });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [profileModalInitialTab, setProfileModalInitialTab] = useState<'entry' | 'trends'>('entry');
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+
+  const openProfileModal = useCallback((initialTab: 'entry' | 'trends' = 'entry') => {
+    setProfileModalInitialTab(initialTab);
+    setIsProfileModalOpen(true);
+  }, []);
 
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>(() => {
     try {
@@ -205,6 +246,24 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     sounds.enabled = soundEnabled;
   }, [soundEnabled]);
+
+  const [vibrationEnabled, setVibrationEnabledState] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_VIBRATION_KEY);
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const setVibrationEnabled = (enabled: boolean) => {
+    setVibrationEnabledState(enabled);
+    nativeBridge.setVibrationEnabled(enabled);
+  };
+
+  useEffect(() => {
+    nativeBridge.vibrationEnabled = vibrationEnabled;
+  }, [vibrationEnabled]);
 
   // Combine default + custom exercises
   const allExercises: ExerciseDefinition[] = [...defaultExercises, ...customExercises];
@@ -650,10 +709,27 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     try {
       updateSyncState('syncing');
-      const result = await performFullSync(user.uid, workouts, { forceWrite, isManual });
+      const result = await performFullSync(user.uid, workouts, {
+        forceWrite,
+        isManual,
+        localProfile: profile,
+        localCustomExercises: customExercises
+      });
       
       if (result.success) {
         setWorkouts(result.workouts);
+        if (result.profile) {
+          setProfile(result.profile);
+          try {
+            localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(result.profile));
+          } catch {}
+        }
+        if (result.customExercises) {
+          setCustomExercises(result.customExercises);
+          try {
+            localStorage.setItem(STORAGE_CUSTOM_EXERCISES_KEY, JSON.stringify(result.customExercises));
+          } catch {}
+        }
         updateSyncState('synced', Date.now(), result.statusMessage);
 
         if (isManual) {
@@ -701,7 +777,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
       }
     }
-  }, [user?.uid, isConfigured, workouts, syncSettings, showToast, updateSyncState]);
+  }, [user?.uid, isConfigured, workouts, profile, customExercises, syncSettings, showToast, updateSyncState]);
 
   // Initial startup sync (only once per user login, obeying smart mode)
   useEffect(() => {
@@ -712,6 +788,31 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
   }, [user?.uid, isConfigured, syncSettings.syncMode, syncSettings.autoSyncOnStartup, syncWithCloud]);
+
+  // Auto-retry pending offline changes when network reconnects ('online') or app returns to foreground
+  useEffect(() => {
+    if (!user?.uid || !isConfigured || syncSettings.syncMode === 'manual') return;
+
+    const handleOnlineReconnect = () => {
+      if (isSyncDirty()) {
+        syncWithCloud({ isManual: false, forceWrite: true, silent: true });
+      }
+    };
+
+    const handleVisibilityResume = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine && isSyncDirty()) {
+        syncWithCloud({ isManual: false, forceWrite: true, silent: true });
+      }
+    };
+
+    window.addEventListener('online', handleOnlineReconnect);
+    document.addEventListener('visibilitychange', handleVisibilityResume);
+
+    return () => {
+      window.removeEventListener('online', handleOnlineReconnect);
+      document.removeEventListener('visibilitychange', handleVisibilityResume);
+    };
+  }, [user?.uid, isConfigured, syncSettings.syncMode, syncWithCloud]);
 
   // Save active draft workout
   const saveWorkout = (): { success: boolean; isPR: boolean; newPRs: string[] } => {
@@ -817,13 +918,14 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     setWorkouts(updatedList);
+    setSyncDirty(true);
 
     // Save to Cloud if logged in and not in purely manual mode
     if (user?.uid && isConfigured && syncSettings.syncMode !== 'manual') {
       updateSyncState('syncing');
       saveCloudWorkouts(user.uid, updatedList)
         .then(() => updateSyncState('synced', Date.now(), 'Buluta kaydedildi'))
-        .catch(() => updateSyncState('error', undefined, 'Kaydetme hatası'));
+        .catch(() => updateSyncState('error', undefined, 'Çevrimdışı kaydedildi (İnternet gelince eşitlenecek)'));
     }
 
     // Clear active workout session from persistent storage & cloud
@@ -872,6 +974,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const remaining = workouts.filter(w => w.id !== workout.id);
     const updated = mergeWorkoutsByDate([workoutWithTimestamp, ...remaining]);
     setWorkouts(updated);
+    setSyncDirty(true);
     sounds.playSuccess();
     showToast({
       title: 'Antrenman Güncellendi',
@@ -883,14 +986,16 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updateSyncState('syncing');
       saveCloudWorkouts(user.uid, updated)
         .then(() => updateSyncState('synced', Date.now(), 'Buluta güncellendi'))
-        .catch(() => updateSyncState('error', undefined, 'Güncelleme hatası'));
+        .catch(() => updateSyncState('error', undefined, 'Çevrimdışı güncellendi'));
     }
   };
 
   // Delete a workout from history
   const deleteWorkout = (id: string) => {
     const updated = workouts.filter(w => w.id !== id);
+    const tombstones = addLocalDeletedWorkoutId(id);
     setWorkouts(updated);
+    setSyncDirty(true);
     sounds.playPop();
     showToast({
       title: 'Antrenman Silindi',
@@ -900,9 +1005,9 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     if (user?.uid && isConfigured && syncSettings.syncMode !== 'manual') {
       updateSyncState('syncing');
-      saveCloudWorkouts(user.uid, updated)
+      saveCloudWorkouts(user.uid, updated, tombstones)
         .then(() => updateSyncState('synced', Date.now(), 'Buluttan silindi'))
-        .catch(() => updateSyncState('error', undefined, 'Silme hatası'));
+        .catch(() => updateSyncState('error', undefined, 'Çevrimdışı silindi'));
     }
   };
 
@@ -918,6 +1023,10 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const updated = [...customExercises, newEx];
     setCustomExercises(updated);
     localStorage.setItem(STORAGE_CUSTOM_EXERCISES_KEY, JSON.stringify(updated));
+    setSyncDirty(true);
+    if (user?.uid && isConfigured && syncSettings.syncMode !== 'manual') {
+      saveCloudCustomExercises(user.uid, updated).catch(() => {});
+    }
     sounds.playSuccess();
     showToast({
       title: 'Özel Egzersiz Eklendi',
@@ -930,8 +1039,13 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Delete custom exercise
   const deleteCustomExercise = (id: string) => {
     const updated = customExercises.filter(e => e.id !== id);
+    const tombstones = addLocalDeletedCustomExerciseId(id);
     setCustomExercises(updated);
     localStorage.setItem(STORAGE_CUSTOM_EXERCISES_KEY, JSON.stringify(updated));
+    setSyncDirty(true);
+    if (user?.uid && isConfigured && syncSettings.syncMode !== 'manual') {
+      saveCloudCustomExercises(user.uid, updated, tombstones).catch(() => {});
+    }
     sounds.playPop();
     showToast({
       title: 'Egzersiz Silindi',
@@ -941,10 +1055,15 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Import / Export
-  const importAllData = (importedWorkouts: Workout[], importedCustom: ExerciseDefinition[]) => {
+  const importAllData = (
+    importedWorkouts: Workout[],
+    importedCustom: ExerciseDefinition[],
+    importedProfile?: AthleteProfile
+  ) => {
     if (importedWorkouts.length > 0) {
       const merged = mergeWorkoutsByDate(importedWorkouts);
       setWorkouts(merged);
+      setSyncDirty(true);
       if (user?.uid && isConfigured) {
         saveCloudWorkouts(user.uid, merged)
           .then(() => updateSyncState('synced', Date.now(), 'Yedek buluta yüklendi'))
@@ -953,6 +1072,26 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     if (importedCustom.length > 0) {
       setCustomExercises(importedCustom);
+      if (user?.uid && isConfigured) {
+        saveCloudCustomExercises(user.uid, importedCustom).catch(() => {});
+      }
+    }
+    if (importedProfile && typeof importedProfile === 'object') {
+      const nextProfile: AthleteProfile = {
+        ...DEFAULT_PROFILE,
+        ...profile,
+        ...importedProfile,
+        measurements: Array.isArray(importedProfile.measurements)
+          ? importedProfile.measurements
+          : (profile.measurements || [])
+      };
+      setProfile(nextProfile);
+      try {
+        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(nextProfile));
+      } catch {}
+      if (user?.uid && isConfigured) {
+        saveCloudProfile(user.uid, nextProfile).catch(() => {});
+      }
     }
     sounds.playFanfare();
     showToast({
@@ -965,13 +1104,18 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const resetAllData = () => {
     setWorkouts([]);
     setCustomExercises([]);
+    setLocalDeletedWorkoutIds([]);
+    setLocalDeletedCustomExerciseIds([]);
     localStorage.setItem(STORAGE_WORKOUTS_KEY, JSON.stringify([]));
     localStorage.removeItem(STORAGE_LEGACY_KEY);
     localStorage.setItem(STORAGE_CUSTOM_EXERCISES_KEY, JSON.stringify([]));
 
     if (user?.uid && isConfigured) {
-      saveCloudWorkouts(user.uid, [])
-        .then(() => updateSyncState('synced', Date.now(), 'Tüm bulut verisi sıfırlandı'))
+      saveCloudWorkouts(user.uid, [], [])
+        .then(() => {
+          saveCloudCustomExercises(user.uid, [], []).catch(() => {});
+          updateSyncState('synced', Date.now(), 'Tüm bulut verisi sıfırlandı');
+        })
         .catch(() => updateSyncState('error'));
     }
 
@@ -984,37 +1128,189 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const populateSampleData = () => {
     const samples = mergeWorkoutsByDate(generateTwoYearWorkouts());
+    const sampleMeasurements = generateSampleBodyMeasurements();
+    const latestEntry = sampleMeasurements[sampleMeasurements.length - 1];
+    const sampleProfile: AthleteProfile = {
+      ...profile,
+      bodyWeightKg: latestEntry?.weightKg ?? 77.5,
+      heightCm: profile.heightCm || 178,
+      bodyFatPct: latestEntry?.bodyFatPct ?? 12.6,
+      muscleMassKg: latestEntry?.muscleMassKg ?? 39.8,
+      measurements: sampleMeasurements,
+      updatedAt: Date.now()
+    };
+
     setWorkouts(samples);
+    setProfile(sampleProfile);
+    try {
+      localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(sampleProfile));
+    } catch {}
+
     if (user?.uid && isConfigured) {
-      saveCloudWorkouts(user.uid, samples)
+      Promise.all([
+        saveCloudWorkouts(user.uid, samples),
+        saveCloudProfile(user.uid, sampleProfile)
+      ])
         .then(() => updateSyncState('synced', Date.now(), 'Örnek veriler buluta yüklendi'))
         .catch(() => updateSyncState('error'));
     }
     sounds.playFanfare();
     showToast({
-      title: '🎉 2 Yıllık Antrenman Geçmişi Yüklendi',
-      description: `${samples.length} antrenman kaydı (kademeli ağırlık & tekrar artışı) başarıyla eklendi.`,
+      title: '🎉 2 Yıllık Antrenman & Vücut Geçmişi Yüklendi',
+      description: `${samples.length} antrenman ve ${sampleMeasurements.length} vücut ölçümü başarıyla eklendi.`,
       type: 'success'
     });
   };
 
   const updateProfile = useCallback((updates: Partial<AthleteProfile>) => {
     setProfile(prev => {
-      const next = { ...prev, ...updates };
+      const todayStr = getTodayLocalDate();
+      const nextWeight = updates.bodyWeightKg ?? prev.bodyWeightKg ?? 75;
+      const nextBf = updates.bodyFatPct !== undefined ? updates.bodyFatPct : prev.bodyFatPct;
+      const nextMuscle = updates.muscleMassKg !== undefined ? updates.muscleMassKg : prev.muscleMassKg;
+
+      // Also upsert today's measurement entry if weight, bodyFatPct, or muscleMassKg changed
+      const existingList = Array.isArray(prev.measurements) ? [...prev.measurements] : [];
+      const shouldLogMeasurement =
+        updates.measurements === undefined &&
+        (updates.bodyWeightKg !== undefined ||
+          updates.bodyFatPct !== undefined ||
+          updates.muscleMassKg !== undefined ||
+          existingList.length === 0);
+
+      let nextMeasurements = updates.measurements !== undefined ? updates.measurements : existingList;
+
+      if (shouldLogMeasurement) {
+        const todayIdx = existingList.findIndex(m => m.date === todayStr);
+        const newEntry: BodyMeasurementEntry = {
+          id: todayIdx >= 0 ? existingList[todayIdx].id : `bm-${Date.now()}`,
+          date: todayStr,
+          weightKg: nextWeight,
+          bodyFatPct: nextBf,
+          muscleMassKg: nextMuscle,
+          waistCm: todayIdx >= 0 ? existingList[todayIdx].waistCm : undefined,
+          neckCm: todayIdx >= 0 ? existingList[todayIdx].neckCm : undefined,
+          armCm: todayIdx >= 0 ? existingList[todayIdx].armCm : undefined,
+          chestCm: todayIdx >= 0 ? existingList[todayIdx].chestCm : undefined,
+          createdAt: Date.now()
+        };
+
+        if (todayIdx >= 0) {
+          existingList[todayIdx] = newEntry;
+        } else {
+          existingList.push(newEntry);
+        }
+        nextMeasurements = existingList.sort((a, b) => a.date.localeCompare(b.date));
+      }
+
+      const next: AthleteProfile = {
+        ...prev,
+        ...updates,
+        bodyWeightKg: nextWeight,
+        measurements: nextMeasurements,
+        updatedAt: Date.now()
+      };
+
       try {
         localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(next));
       } catch (err) {
         console.error('Failed to save profile:', err);
       }
+
+      if (user?.uid && isConfigured && syncSettings.syncMode !== 'manual') {
+        saveCloudProfile(user.uid, next).catch(() => {});
+      }
+
       return next;
     });
     sounds.playSuccess();
     showToast({
-      title: '👤 Sporcu Profili Güncellendi',
-      description: `Kilo: ${updates.bodyWeightKg ?? profile.bodyWeightKg}kg • ${updates.gender === 'female' ? 'Kadın' : 'Erkek'}`,
+      title: '📏 Vücut Analizi Güncellendi',
+      description: `Kilo: ${updates.bodyWeightKg ?? profile.bodyWeightKg}kg${updates.bodyFatPct ? ` • Yağ: %${updates.bodyFatPct}` : ''}`,
       type: 'success'
     });
-  }, [profile.bodyWeightKg, showToast]);
+  }, [profile.bodyWeightKg, user?.uid, isConfigured, syncSettings.syncMode, showToast]);
+
+  const logBodyMeasurement = useCallback((entry: Omit<BodyMeasurementEntry, 'id' | 'createdAt'>) => {
+    setProfile(prev => {
+      const list = Array.isArray(prev.measurements) ? [...prev.measurements] : [];
+      const existingIdx = list.findIndex(m => m.date === entry.date);
+      const savedEntry: BodyMeasurementEntry = {
+        ...entry,
+        id: existingIdx >= 0 ? list[existingIdx].id : `bm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        createdAt: Date.now()
+      };
+
+      if (existingIdx >= 0) {
+        list[existingIdx] = savedEntry;
+      } else {
+        list.push(savedEntry);
+      }
+
+      const sorted = list.sort((a, b) => a.date.localeCompare(b.date));
+      const latest = sorted[sorted.length - 1];
+
+      const next: AthleteProfile = {
+        ...prev,
+        bodyWeightKg: latest ? latest.weightKg : entry.weightKg,
+        bodyFatPct: latest?.bodyFatPct !== undefined ? latest.bodyFatPct : prev.bodyFatPct,
+        muscleMassKg: latest?.muscleMassKg !== undefined ? latest.muscleMassKg : prev.muscleMassKg,
+        measurements: sorted,
+        updatedAt: Date.now()
+      };
+
+      try {
+        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(next));
+      } catch {}
+
+      if (user?.uid && isConfigured && syncSettings.syncMode !== 'manual') {
+        saveCloudProfile(user.uid, next).catch(() => {});
+      }
+
+      return next;
+    });
+
+    sounds.playSuccess();
+    showToast({
+      title: '📏 Vücut Ölçümü Eklendi',
+      description: `${entry.date}: ${entry.weightKg} kg${entry.bodyFatPct ? ` • %${entry.bodyFatPct} Yağ` : ''}${entry.muscleMassKg ? ` • ${entry.muscleMassKg} kg Kas` : ''}`,
+      type: 'success'
+    });
+  }, [user?.uid, isConfigured, syncSettings.syncMode, showToast]);
+
+  const deleteBodyMeasurement = useCallback((id: string) => {
+    setProfile(prev => {
+      const filtered = (prev.measurements || []).filter(m => m.id !== id);
+      const sorted = filtered.sort((a, b) => a.date.localeCompare(b.date));
+      const latest = sorted[sorted.length - 1];
+
+      const next: AthleteProfile = {
+        ...prev,
+        bodyWeightKg: latest ? latest.weightKg : prev.bodyWeightKg,
+        bodyFatPct: latest?.bodyFatPct !== undefined ? latest.bodyFatPct : prev.bodyFatPct,
+        muscleMassKg: latest?.muscleMassKg !== undefined ? latest.muscleMassKg : prev.muscleMassKg,
+        measurements: sorted,
+        updatedAt: Date.now()
+      };
+
+      try {
+        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(next));
+      } catch {}
+
+      if (user?.uid && isConfigured && syncSettings.syncMode !== 'manual') {
+        saveCloudProfile(user.uid, next).catch(() => {});
+      }
+
+      return next;
+    });
+
+    sounds.playPop();
+    showToast({
+      title: 'Ölçüm Silindi',
+      description: 'Seçilen ölçüm kaydı geçmişten kaldırıldı.',
+      type: 'info'
+    });
+  }, [user?.uid, isConfigured, syncSettings.syncMode, showToast]);
 
   const applyOverloadSuggestion = useCallback((exerciseId: string) => {
     const ex = allExercises.find(e => e.id === exerciseId);
@@ -1080,6 +1376,8 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         confettiTrigger,
         soundEnabled,
         setSoundEnabled,
+        vibrationEnabled,
+        setVibrationEnabled,
         isLoggingWorkout,
         setIsLoggingWorkout,
         activeSessionStartTime,
@@ -1092,9 +1390,15 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         populateSampleData,
         profile,
         updateProfile,
+        logBodyMeasurement,
+        deleteBodyMeasurement,
         applyOverloadSuggestion,
         isProfileModalOpen,
         setIsProfileModalOpen,
+        profileModalInitialTab,
+        openProfileModal,
+        isSettingsModalOpen,
+        setIsSettingsModalOpen,
         syncWithCloud
       }}
     >

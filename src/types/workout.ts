@@ -111,7 +111,7 @@ export interface RankTier {
   description: string;
 }
 
-export type TabType = 'workout' | 'levels' | 'history' | 'stats';
+export type TabType = 'workout' | 'levels' | 'history' | 'stats' | 'body';
 
 export type SyncMode = 'smart' | 'on_save_only' | 'manual';
 
@@ -130,11 +130,58 @@ export interface SyncDiffResult {
 
 export type Gender = 'male' | 'female';
 
+export interface BodyMeasurementEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  weightKg: number;
+  bodyFatPct?: number; // Vücut yağ oranı (%)
+  muscleMassKg?: number; // İskelet kas kütlesi veya yağsız kütle (kg)
+  waistCm?: number; // Bel çevresi (cm)
+  neckCm?: number; // Boyun çevresi (cm)
+  hipCm?: number; // Kalça çevresi (cm - kadın US Navy hesabı için)
+  armCm?: number; // Kol / Biceps çevresi (cm)
+  chestCm?: number; // Göğüs çevresi (cm)
+  notes?: string;
+  createdAt: number;
+}
+
 export interface AthleteProfile {
   bodyWeightKg: number;
+  heightCm?: number;
+  bodyFatPct?: number;
+  muscleMassKg?: number;
+  targetWeightKg?: number;
+  targetBodyFatPct?: number;
   gender: Gender;
   age?: number;
   trainingGoal?: 'strength' | 'hypertrophy' | 'endurance';
+  measurements?: BodyMeasurementEntry[];
+  updatedAt?: number;
+}
+
+export interface BodyCompositionAnalysis {
+  weightKg: number;
+  heightCm: number;
+  bmi: number;
+  bmiCategory: string;
+  bodyFatPct: number;
+  isBodyFatEstimated: boolean;
+  fatMassKg: number;
+  leanBodyMassKg: number;
+  muscleMassKg: number;
+  isMuscleEstimated: boolean;
+  ffmi: number;
+  normalizedFfmi: number;
+  ffmiTier: string;
+  ffmiColor: string;
+  deltaWeightKg: number;
+  deltaBodyFatPct: number;
+  deltaMuscleKg: number;
+  recompStatus: 'recomp' | 'lean_bulk' | 'cutting' | 'maintenance';
+  recompLabel: string;
+  recompBadge: string;
+  recompDescription: string;
+  recompColor: string;
 }
 
 export type StrengthTier = 'beginner' | 'novice' | 'intermediate' | 'advanced' | 'elite';

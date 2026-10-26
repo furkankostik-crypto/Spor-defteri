@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Timer, X, Plus, Minus } from 'lucide-react';
+import { Timer, X } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { nativeBridge } from '../../utils/nativeBridge';
 
@@ -37,25 +37,6 @@ export const RestTimerBar: React.FC = () => {
     setTimer(null);
     setRemaining(0);
     nativeBridge.cancelRestTimerNotification();
-  }, []);
-
-  const adjustTimer = useCallback((deltaSeconds: number) => {
-    sounds.playTick();
-    setTimer((prev) => {
-      if (!prev) return null;
-      const now = Date.now();
-      const currentRem = Math.max(0, Math.ceil((prev.endTime - now) / 1000));
-      const nextRem = Math.max(5, currentRem + deltaSeconds);
-      const nextTotal = Math.max(prev.totalSeconds, nextRem);
-      localStorage.setItem(STORAGE_REST_DURATION_KEY, String(nextTotal));
-      nativeBridge.scheduleRestTimerNotification(nextRem, prev.exerciseName);
-      setRemaining(nextRem);
-      return {
-        ...prev,
-        endTime: now + nextRem * 1000,
-        totalSeconds: nextTotal
-      };
-    });
   }, []);
 
   useEffect(() => {
@@ -186,7 +167,7 @@ export const RestTimerBar: React.FC = () => {
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxWidth: 135
+                  maxWidth: 240
                 }}
               >
                 {timer.exerciseName}
@@ -195,54 +176,8 @@ export const RestTimerBar: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: -15s / +30s / Skip controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => adjustTimer(-15)}
-            style={{
-              height: 28,
-              padding: '0 7px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: 'var(--text-secondary)',
-              fontSize: 10.5,
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2
-            }}
-            title="15 Saniye Azalt"
-          >
-            <Minus size={11} />
-            <span>15s</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => adjustTimer(30)}
-            style={{
-              height: 28,
-              padding: '0 7px',
-              borderRadius: '8px',
-              background: 'rgba(56, 189, 248, 0.14)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              color: '#38bdf8',
-              fontSize: 10.5,
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2
-            }}
-            title="30 Saniye Ekle"
-          >
-            <Plus size={11} />
-            <span>30s</span>
-          </button>
-
+        {/* Right: Close control */}
+        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <button
             type="button"
             onClick={dismissTimer}

@@ -1,0 +1,13 @@
+{
+  "version": "1.4.0",
+  "build": 14,
+  "releaseDate": "2026-10-26",
+  "apkUrl": "https://spor-defteri.vercel.app/GymPad.apk",
+  "apkSize": "38 MB",
+  "releaseNotes": [
+    "Yenilenmiş, sade ve taşmasız Sporcu Kokpiti (Dashboard) deneyimi",
+    "Tek kartta birleştirilmiş Geçmiş filtreleri ve sadeleştirilmiş Gelişim ekranı",
+    "Native Android Google ile Giriş ve gelişmiş haptik bildirim desteği",
+    "Aktif antrenmanda ekranın kapanmasını önleyen WakeLock ve sürüm kontrol merkezi"
+  ]
+}
