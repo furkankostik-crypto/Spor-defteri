@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "336645968808",
+    "project_id": "spor-defterim",
+    "storage_bucket": "spor-defterim.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:336645968808:android:61a0a6677c5579837f439d",
+        "android_client_info": {
+          "package_name": "com.spordefterim.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "336645968808-04temdppidlfkq026md6mif8td2ukrha.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spordefterim.app",
+            "certificate_hash": "392001a35137d7def3ce9a245a697e3b7a4920f4"
+          }
+        },
+        {
+          "client_id": "336645968808-lrn4g776s97r47alfq0oi2umiftfg5ol.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3RYNyLEwtUYEKr8MBoXUEyeoxsIkkAkk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "336645968808-lrn4g776s97r47alfq0oi2umiftfg5ol.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

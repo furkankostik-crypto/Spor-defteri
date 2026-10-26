@@ -7,7 +7,14 @@
   "server": {
     "url": "https://spor-defteri.vercel.app",
     "cleartext": false,
-    "errorPath": "index.html"
+    "errorPath": "index.html",
+    "allowNavigation": [
+      "spor-defteri.vercel.app",
+      "accounts.google.com",
+      "*.google.com",
+      "*.googleusercontent.com",
+      "*.firebaseapp.com"
+    ]
   },
   "android": {
     "backgroundColor": "#0b0f17",
@@ -15,6 +22,11 @@
     "overrideUserAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
   },
   "plugins": {
+    "SocialLogin": {
+      "google": {
+        "webClientId": "336645968808-lrn4g776s97r47alfq0oi2umiftfg5ol.apps.googleusercontent.com"
+      }
+    },
     "SplashScreen": {
       "launchShowDuration": 1200,
       "launchAutoHide": true,

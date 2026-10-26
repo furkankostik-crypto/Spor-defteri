@@ -3,14 +3,17 @@ import {
   User, 
   onAuthStateChanged, 
   signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithRedirect, 
+  getRedirectResult, 
+  signInWithCredential, 
+  GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
   updateProfile, 
   sendPasswordResetEmail 
 } from 'firebase/auth';
+import { SocialLogin } from '@capgo/capacitor-social-login';
 import { auth, googleProvider, appleProvider, isFirebaseConfigured } from '../services/firebase';
 import { CloudSyncSettings } from '../types/workout';
 import { getSavedWritesCount, resetSavedWritesCount } from '../services/workoutSync';
@@ -118,6 +121,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    if (nativeBridge.isNative()) {
+      SocialLogin.initialize({
+        google: {
+          webClientId: '336645968808-lrn4g776s97r47alfq0oi2umiftfg5ol.apps.googleusercontent.com'
+        }
+      }).catch((err) => {
+        console.warn('SocialLogin init warning:', err);
+      });
+    }
+
     if (!isFirebaseConfigured || !auth) {
       setLoading(false);
       setSyncStatus('offline');
@@ -161,11 +174,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       setSyncStatus('syncing');
-      // Inside Native Android/iOS APK, popups are blocked by WebView; use redirect flow directly
+
+      // 1. Inside Native Android/iOS APK: Use Native Google Sign-In sheet (Direct in-app, no browser redirect)
       if (nativeBridge.isNative()) {
-        await signInWithRedirect(auth, googleProvider);
-        return { success: true };
+        try {
+          await SocialLogin.initialize({
+            google: {
+              webClientId: '336645968808-lrn4g776s97r47alfq0oi2umiftfg5ol.apps.googleusercontent.com'
+            }
+          });
+
+          const res = await SocialLogin.login({
+            provider: 'google',
+            options: {
+              scopes: ['email', 'profile']
+            }
+          });
+
+          const resultObj = res.result as any;
+          const idToken = resultObj?.idToken || resultObj?.authentication?.idToken;
+
+          if (idToken) {
+            const credential = GoogleAuthProvider.credential(idToken);
+            await signInWithCredential(auth, credential);
+            setSyncStatus('idle');
+            return { success: true };
+          } else {
+            throw new Error('Google oturum belirteci (idToken) alınamadı.');
+          }
+        } catch (nativeErr: any) {
+          console.error('Native Google Giriş Hatası:', nativeErr);
+          setSyncStatus('error');
+          const errStr = String(nativeErr?.message || nativeErr || '');
+          if (errStr.includes('cancel') || nativeErr?.code === '16' || errStr.includes('12501')) {
+            return { success: false, error: 'Giriş işlemi iptal edildi.' };
+          }
+          if (errStr.includes('10') || errStr.toLowerCase().includes('developer_error')) {
+            return { 
+              success: false, 
+              error: 'Firebase SHA-1 parmak izi eşleşmedi. Lütfen Firebase Console -> Project Settings -> GymPad altından SHA-1 ekleyin.' 
+            };
+          }
+          return { success: false, error: nativeErr.message || 'Google ile giriş başarısız oldu.' };
+        }
       }
+
+      // 2. Web browser: Use standard popup
       await signInWithPopup(auth, googleProvider);
       return { success: true };
     } catch (err: any) {
