@@ -100,12 +100,12 @@ export const InstallPrompt: React.FC = () => {
               >
                 <img 
                   src="/icon-192.png" 
-                  alt="Spor Defterim" 
+                  alt="GymPad" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                 />
               </div>
               <h3 style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', margin: '0 0 4px 0' }}>
-                Spor Defterim'i Cihazına Yükle
+                GymPad'i Cihazına Yükle
               </h3>
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>
                 Tek dokunuşla tam ekran, internet bağlantısı olmadan da çalışan yerel uygulama deneyimi!

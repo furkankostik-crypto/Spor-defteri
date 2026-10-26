@@ -1,6 +1,6 @@
 {
-  "name": "Spor Defterim — Antrenman & Level Takip",
-  "short_name": "Spor Defterim",
+  "name": "GymPad — Antrenman & Level Takip",
+  "short_name": "GymPad",
   "description": "Kişiselleştirilmiş antrenman takibi, set & ağırlık kaydı, 1-1000 seviye ilerlemesi ve kişisel rekorlar (PR).",
   "id": "/",
   "start_url": "/?source=pwa",

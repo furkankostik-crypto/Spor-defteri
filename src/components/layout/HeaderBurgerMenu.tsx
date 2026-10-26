@@ -15,7 +15,6 @@ import {
   VolumeX, 
   User as UserIcon, 
   ChevronRight,
-  ShieldCheck,
   Smartphone,
   Scale
 } from 'lucide-react';
@@ -328,8 +327,9 @@ export const HeaderBurgerMenu: React.FC = () => {
             {!nativeBridge.isNative() && (
               <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <a
-                  href="/Spor-Defterim.apk"
-                  download="Spor-Defterim.apk"
+                  href="https://github.com/furkankostik-crypto/Spor-defteri/releases/download/v1.4.0/GymPad.apk"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => {
                     sounds.playPop();
                     setIsOpen(false);
@@ -347,7 +347,7 @@ export const HeaderBurgerMenu: React.FC = () => {
                     </div>
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ fontSize: 13, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>Android APK İndir</span>
+                        <span>GymPad APK İndir</span>
                         <span style={{ fontSize: 9.5, background: 'var(--muscle-emerald)', color: '#000', padding: '1px 5px', borderRadius: 4, fontWeight: 900 }}>NATIVE</span>
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tam donanım & titreşim destekli APK</div>
@@ -534,11 +534,11 @@ export const HeaderBurgerMenu: React.FC = () => {
                 paddingRight: 4
               }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <ShieldCheck size={12} color="var(--muscle-emerald)" />
-                {nativeBridge.isNative() ? 'Spor Defterim • Native App' : 'Spor Defterim • PWA'}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <img src="/favicon.png" alt="GymPad" style={{ width: 14, height: 14, borderRadius: 4 }} />
+                {nativeBridge.isNative() ? 'GymPad • Native App' : 'GymPad • PWA'}
               </span>
-              <span>v1.3.0 (Build 12)</span>
+              <span>v1.4.0 (Build 14)</span>
             </div>
           </div>
         )}

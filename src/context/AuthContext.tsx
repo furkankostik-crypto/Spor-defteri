@@ -3,6 +3,8 @@ import {
   User, 
   onAuthStateChanged, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
@@ -12,6 +14,7 @@ import {
 import { auth, googleProvider, appleProvider, isFirebaseConfigured } from '../services/firebase';
 import { CloudSyncSettings } from '../types/workout';
 import { getSavedWritesCount, resetSavedWritesCount } from '../services/workoutSync';
+import { nativeBridge } from '../utils/nativeBridge';
 
 export interface UserProfile {
   uid: string;
@@ -121,6 +124,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Handle redirect sign-in result (used by Native Android WebView & mobile fallback)
+    getRedirectResult(auth).catch((err) => {
+      console.warn('Redirect sign-in check:', err);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setRawUser(firebaseUser);
@@ -153,10 +161,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       setSyncStatus('syncing');
+      // Inside Native Android/iOS APK, popups are blocked by WebView; use redirect flow directly
+      if (nativeBridge.isNative()) {
+        await signInWithRedirect(auth, googleProvider);
+        return { success: true };
+      }
       await signInWithPopup(auth, googleProvider);
       return { success: true };
     } catch (err: any) {
       console.error('Google Giriş Hatası:', err);
+      // Fallback to redirect if popup is blocked on mobile browser
+      if (
+        err.code === 'auth/popup-blocked' ||
+        err.code === 'auth/operation-not-supported-in-this-environment' ||
+        err.code === 'auth/unauthorized-domain'
+      ) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return { success: true };
+        } catch (redirErr: any) {
+          setSyncStatus('error');
+          return { success: false, error: redirErr.message || 'Google ile giriş yönlendirmesi başarısız.' };
+        }
+      }
       setSyncStatus('error');
       let msg = 'Google ile giriş yapılamadı.';
       if (err.code === 'auth/popup-closed-by-user') msg = 'Giriş penceresi kapatıldı.';

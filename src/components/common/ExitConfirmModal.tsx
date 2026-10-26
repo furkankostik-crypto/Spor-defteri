@@ -43,23 +43,23 @@ export const ExitConfirmModal: React.FC = () => {
                 width: 40,
                 height: 40,
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
+                background: '#0b0f17',
+                border: '1px solid rgba(239, 68, 68, 0.45)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#f87171',
+                overflow: 'hidden',
                 flexShrink: 0
               }}
             >
-              <LogOut size={20} />
+              <img src="/icon-192.png" alt="GymPad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <div>
               <h3 style={{ fontSize: 17, fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.01em' }}>
                 Uygulamadan Çıkılsın mı?
               </h3>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                Spor Defterim
+                GymPad
               </div>
             </div>
           </div>

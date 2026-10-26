@@ -201,13 +201,46 @@ export const WorkoutView: React.FC = () => {
           marginBottom: 14
         }}
       >
-        <div>
-          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
-            Spor Defterim
-          </h2>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <Calendar size={12} color="var(--accent)" />
-            <span>{new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' })}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              overflow: 'hidden',
+              background: '#0b0f17',
+              border: '1.5px solid rgba(56, 189, 248, 0.35)',
+              boxShadow: '0 4px 14px rgba(255, 71, 87, 0.22), 0 0 12px rgba(56, 189, 248, 0.18)',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <img
+              src="/icon-192.png"
+              alt="GymPad"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </div>
+          <div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 900,
+                letterSpacing: '-0.02em',
+                margin: 0,
+                background: 'linear-gradient(90deg, #ffffff 0%, #f1f5f9 55%, #38bdf8 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              GymPad
+            </h2>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
+              <Calendar size={12} color="var(--accent)" />
+              <span>{new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' })}</span>
+            </div>
           </div>
         </div>
 

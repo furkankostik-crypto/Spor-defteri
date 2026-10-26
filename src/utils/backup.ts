@@ -23,12 +23,12 @@ export async function exportToJSON(workouts: Workout[], customExercises: Exercis
   };
 
   const jsonStr = JSON.stringify(data, null, 2);
-  const filename = `spor-defterim-yedek-${getTodayLocalDate()}.json`;
+  const filename = `gympad-yedek-${getTodayLocalDate()}.json`;
   return nativeBridge.exportOrShareFile(
     filename,
     jsonStr,
     'application/json',
-    'Spor Defterim JSON Yedeği'
+    'GymPad JSON Yedeği'
   );
 }
 
@@ -77,12 +77,12 @@ export async function exportToCSV(workouts: Workout[]): Promise<boolean> {
   });
 
   const csvContent = '\uFEFF' + rows.map(r => r.join(';')).join('\n');
-  const filename = `spor-defterim-antrenmanlar-${getTodayLocalDate()}.csv`;
+  const filename = `gympad-antrenmanlar-${getTodayLocalDate()}.csv`;
   return nativeBridge.exportOrShareFile(
     filename,
     csvContent,
     'text/csv;charset=utf-8;',
-    'Spor Defterim Excel (CSV) Tablosu'
+    'GymPad Excel (CSV) Tablosu'
   );
 }
 
