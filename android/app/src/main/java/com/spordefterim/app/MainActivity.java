@@ -101,6 +101,8 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
                 WebSettings settings = webView.getSettings();
                 settings.setJavaScriptCanOpenWindowsAutomatically(true);
                 settings.setSupportMultipleWindows(false);
+                settings.setDomStorageEnabled(true);
+                settings.setDatabaseEnabled(true);
                 String ua = settings.getUserAgentString();
                 if (ua != null && ua.contains("; wv")) {
                     settings.setUserAgentString(ua.replace("; wv", ""));

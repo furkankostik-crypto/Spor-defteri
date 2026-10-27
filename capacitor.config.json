@@ -5,21 +5,18 @@
   "bundledWebRuntime": false,
   "backgroundColor": "#0b0f17",
   "server": {
-    "url": "https://spor-defteri.vercel.app",
-    "cleartext": false,
-    "errorPath": "index.html",
+    "androidScheme": "https",
     "allowNavigation": [
-      "spor-defteri.vercel.app",
       "accounts.google.com",
       "*.google.com",
       "*.googleusercontent.com",
-      "*.firebaseapp.com"
+      "*.firebaseapp.com",
+      "spor-defteri.vercel.app"
     ]
   },
   "android": {
     "backgroundColor": "#0b0f17",
-    "allowMixedContent": true,
-    "overrideUserAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+    "allowMixedContent": true
   },
   "plugins": {
     "SocialLogin": {
